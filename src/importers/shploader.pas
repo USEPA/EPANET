@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       shploader
  Description:  loads the contents of a shapefile into a project
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit shploader;
@@ -20,13 +18,14 @@ uses
 
 type
   TShpOptions = record
-    NodeFileName:     String;
-    LinkFileName:     String;
+    NodeFileName:     string;
+    LinkFileName:     string;
     NodeAttribs:      array[1..6] of Integer;
-    NodeUnits:        array[1..6] of String;
+    NodeUnits:        array[1..6] of string;
     LinkAttribs:      array[1..9] of Integer;
-    LinkUnits:        array[1..9] of String;
+    LinkUnits:        array[1..9] of string;
     CoordUnits:       Integer;
+    Epsg:             Integer;
     SnapTol:          Double;
     SnapUnits:        Integer;
     ComputeLengths:   Boolean;
@@ -53,12 +52,13 @@ const
 var
   ShpOptions: TShpOptions;
 
-procedure LoadShapeFile(theShpOptions: TShpOptions);
+function LoadShapeFile(theShpOptions: TShpOptions): Boolean;
 
 implementation
 
 uses
-  main, mapcoords, project, projectbuilder, shpapi, epanet2;
+  main, mapcoords, project, projectbuilder, shpapi, projtransform, utils,
+  resourcestrings, epanet2;
 
 const
   FlowPerCFS: array[0..10] of Double =
@@ -67,37 +67,45 @@ const
      0.028317); {CMS per CFS}
 
 var
-  FieldType: array of DBFFieldType;
+  FieldType:            array of DBFFieldType;
+  SrcEpsg,
+  DstEpsg:              Integer;
+  SnapTol:              Double;
+  SnapUcf:              Double;
+  HasDegreesUnits:      Boolean;
+  NeedsProjTransform:   Boolean;
+  ProjTrans:            TProjTransform;
 
-function GetStringAttrib(Dbf: DBFHandle; I, J: Integer; var S: String): Boolean;
+function GetstringAttrib(Dbf: DBFHandle; I, J: Integer; var S: string): Boolean;
 begin
   S := '';
-  Result := False;
+  Result := false;
   if J < 0 then exit;
-  if FieldType[J] <> FTString then exit;
-  S := shpapi.DBFReadStringAttribute(Dbf, I, J);
-  Result := True;
+  if FieldType[J] <> FTstring then exit;
+  S := shpapi.DBFReadstringAttribute(Dbf, I, J);
+  Result := true;
 end;
 
 function GetNumericalAttrib(Dbf: DBFHandle; I, J: Integer; var V: Double): Boolean;
 begin
   V := 0;
-  Result := False;
+  Result := false;
   if J < 0 then exit;
   if FieldType[J] = FTInteger then
     V := shpapi.DBFReadIntegerAttribute(Dbf, I, J)
   else if FieldType[J] = FTDouble then
     V := shpapi.DBFReadDoubleAttribute(Dbf, I, J)
-  else exit;
-  Result := True;
+  else if FieldType[J] = FTstring then
+    TryStrToFloat(shpapi.DBFReadstringAttribute(Dbf, I, J), V)
+  else
+    exit;
+  Result := true;
 end;
 
-function GetID(Dbf: DBFHandle; I, J: Integer): String;
-//  Read ID string from field J of the I-th record in a dBase file.
-
+function GetID(Dbf: DBFHandle; I, J: Integer): string;
 begin
-  if FieldType[J] = FTString then
-    Result := shpapi.DBFReadStringAttribute(Dbf, I, J)
+  if FieldType[J] = FTstring then
+    Result := shpapi.DBFReadstringAttribute(Dbf, I, J)
   else if FieldType[J] = FTInteger then
     Result := IntToStr(shpapi.DBFReadIntegerAttribute(Dbf, I, J))
   else
@@ -106,15 +114,15 @@ end;
 
 {==================== NODE FUNCTIONS =======================================}
 
-function GetNodeID(Dbf: DBFHandle; NodeType: Integer; I: Integer): String;
-// Retrieve the ID string of the I-th record in a nodes dBase file.
-
+function GetNodeID(Dbf: DBFHandle; NodeType: Integer; I: Integer;
+  var Index: Integer): string;
 var
-  J, Index: Integer;
-  ID: String;
+  J:  Integer;
+  ID: string;
 begin
   // Try reading ID from dBase file
   ID := '';
+  Index := 0;
   if Dbf <> nil then
   begin
     J := ShpOptions.NodeAttribs[nID];
@@ -123,26 +131,20 @@ begin
 
   // Check if ID used by another node
   if Length(ID) > 0 then
-  begin
-    epanet2.ENgetnodeindex(PAnsiChar(ID), Index);
-    if Index > 0 then ID := '';
-  end;
-
-  // If ID still blank then find an unused one
-  if Length(ID) = 0 then
-    ID := projectbuilder.FindUnusedID(cNodes, NodeType);
+    epanet2.ENgetnodeindex(PAnsiChar(ID), Index)
+  else
+    ID := projectbuilder.FindUnusedID(ctNodes, NodeType);
   Result := ID;
 end;
 
 function GetNodeType(Dbf: DBFHandle; I: Integer): Integer;
-// Return the type of node appearing as the I-th record of a nodes dBase file.
-
 var
-  J, K: Integer;
-  S: String;
+  J: Integer;
+  K: Integer;
+  S: string;
 begin
   // Assume node type is a Junction
-  Result := project.nJunction;
+  Result := project.ntJunction;
   if Dbf <> nil then
   begin
     // J is the 0-based field index for node type in the dBase file
@@ -150,31 +152,37 @@ begin
     if J >= 0 then
     begin
       // Node type appears as a string attribute
-      if FieldType[J] = FTString then
+      if FieldType[J] = FTstring then
       begin
-        S := shpapi.DBFReadStringAttribute(Dbf, I, J);
+        S := shpapi.DBFReadstringAttribute(Dbf, I, J);
         // See if string S is a Reservoir or a Tank
-        if StartsText('RES', S) then Result := project.nReservoir
-        else if StartsText('TANK', S) then Result := project.nTank;
+        if StartsText('RES', S) then
+          Result := project.ntReservoir
+        else if StartsText('TANK', S) then
+          Result := project.ntTank;
       end;
 
       // Node type appears as an integer type code
       if FieldType[J] = FTInteger then
       begin
         K := shpapi.DBFReadIntegerAttribute(Dbf, I, J);
-        if K = project.nReservoir then Result := K
-        else if K = project.nTank then Result := K;
+        if K = project.ntReservoir then
+          Result := K
+        else if K = project.ntTank then
+          Result := K;
       end;
     end;
   end;
 end;
 
 function NodeUcf(Attrib: Integer): Double;
+//
 // Return a units conversion factor for a given node attribute.
-
+//
 var
-  S: String;
-  I, J: Integer;
+  S: string;
+  I: Integer;
+  J: Integer = 0;
 begin
   // Find the units S that the user specified for the attribute
   Result := 1;
@@ -201,74 +209,72 @@ begin
 end;
 
 procedure SetNodeProps(Dbf: DBFHandle; I: Integer; NodeIndex: Integer);
+//
 // Set the properties of the project node with index NodeIndex to the
 //  corresponding attributes stored in the I-th dBase file record.
-
+//
 var
-  S: String;
-  V: Double;
+  S: string = '';
+  V: Double = 0;
 begin
   // Node description comment
-  if GetStringAttrib(Dbf, I, ShpOptions.NodeAttribs[nDescrip], S)
-  and (Length(S) > 0)
-  then epanet2.ENsetcomment(EN_NODE, NodeIndex, PAnsiChar(S));
+  if GetstringAttrib(Dbf, I, ShpOptions.NodeAttribs[nDescrip], S)
+  and (Length(S) > 0) then
+    epanet2.ENsetcomment(EN_NODE, NodeIndex, PAnsiChar(S));
   
   // Node elevation
   if GetNumericalAttrib(Dbf, I, ShpOptions.NodeAttribs[nElev], V) then
     epanet2.Ensetnodevalue(NodeIndex, EN_ELEVATION, NodeUcf(nElev)*V);
-    
+
   // Node demand
   if GetNumericalAttrib(Dbf, I, ShpOptions.NodeAttribs[nDemand], V) then
     epanet2.Ensetnodevalue(NodeIndex, EN_BASEDEMAND, NodeUcf(nDemand)*V);
 end;
 
 function AddNode(Dbf: DBFHandle; I: Integer;  X,Y: Double): Integer;
-// Add a new node from the I-th record in a nodes shape file.
-
+//
+// Add a new node to the project from the I-th record in a nodes shape file.
+// (X,Y already transformed if needed.)
+//
 var
-  ID: String;
-  Err: Integer;
-  NodeType, NodeIndex: Integer;
+  ID:        string;
+  NodeType:  Integer;
+  NodeIndex: Integer;
 begin
-  // Determine what is the node's subtype
   Result := 0;
   NodeType := GetNodeType(Dbf, I);
-
-  // Obtain an ID name for the node
-  ID := GetNodeID(Dbf, NodeType, I);
-
-  // Try to add the node to the EPANET project
-  Err := epanet2.ENaddnode(PAnsiChar(ID), NodeType, NodeIndex);
-
-  // Node was successfully added
-  if Err = 0 then
+  NodeIndex := 0;
+  ID := GetNodeID(Dbf, NodeType, I, NodeIndex);
+  if NodeIndex = 0 then
   begin
-    // Set the node's coordinates and its default properties
-    epanet2.ENsetcoord(NodeIndex, X, Y);
-    epanet2.ENsetnodevalue(NodeIndex, EN_ELEVATION,
-      StrToFloatDef(project.DefProps[1], 0));
-    if NodeType = nTank then
+    if epanet2.ENaddnode(PAnsiChar(ID), NodeType, NodeIndex) = 0 then
     begin
-      epanet2.ENsetnodevalue(NodeIndex, EN_MAXLEVEL,
-        StrToFloatDef(project.DefProps[2], 0.0));
-      epanet2.ENsetnodevalue(NodeIndex, EN_TANKDIAM,
-        StrToFloatDef(project.DefProps[3], 0.0));
+      epanet2.ENsetnodevalue(NodeIndex, EN_ELEVATION,
+        StrToFloatDef(project.DefProps[1], 0));
+      if NodeType = ntTank then
+      begin
+        epanet2.ENsetnodevalue(NodeIndex, EN_MAXLEVEL,
+          StrToFloatDef(project.DefProps[2], 0.0));
+        epanet2.ENsetnodevalue(NodeIndex, EN_TANKDIAM,
+          StrToFloatDef(project.DefProps[3], 0.0));
+      end;
     end;
-
-    // Assign any node properties contained in the dBase file
-    if (Dbf <> nil) then SetNodeProps(Dbf, I, NodeIndex);
-    Result := NodeIndex;
   end;
+  if NodeIndex > 0 then
+  begin
+    epanet2.ENsetcoord(NodeIndex, X, Y);
+    if (Dbf <> nil) then SetNodeProps(Dbf, I, NodeIndex);
+  end;
+  Result := NodeIndex;
 end;
 
 procedure GetFieldTypes(Dbf: DBFHandle);
-// Store the type code (FTString, FTInteger, or FTDouble) of each attribute
-// of a dBase file in the module-level FieldType array.
-
 var
-  I, N: Integer;
-  Fname: array[0..XBASE_FLDNAME_LEN_READ] of Char;
-  Fwidth, Fdec: Integer;
+  I:      Integer;
+  N:      Integer;
+  Fname:  array[0..XBASE_FLDNAME_LEN_READ] of Char = '';
+  Fwidth: Integer = 0;
+  Fdec:   Integer = 0;
 begin
   N := shpapi.DBFGetFieldCount(Dbf);
   SetLength(FieldType, N);
@@ -277,18 +283,20 @@ begin
 end;
 
 procedure LoadNodes;
-// Load contents of a Nodes shape file and its dBase file into the project.
-
+//
+// Load contents of a Nodes shapefile and its dBase file into the project.
+//
 var
-  Filename: String;
-  Shp: SHPHandle;
-  ShpObj: PShpObject;
-  Dbf: DBFHandle;
-  Count, I: Integer;
-  ShapeType: Integer;
-  MinBound: array [0..3] of Double;
-  MaxBound: array [0..3] of Double;
-  X, Y: Double;
+  Filename:   string;
+  Shp:        SHPHandle;
+  ShpObj:     PShpObject;
+  Dbf:        DBFHandle;
+  Count:      Integer;
+  I:          Integer;
+  ShapeType:  Integer;
+  MinBound:   array [0..3] of Double;
+  MaxBound:   array [0..3] of Double;
+  X, Y:       Double;
 begin
   with ShpOptions do
   begin
@@ -297,8 +305,8 @@ begin
     Count := 0;
     Shp := nil;
     Dbf := nil;
-    try
 
+    try
       // Open the shape file and its dBase file
       Shp := shpapi.SHPOpen(PAnsiChar(Filename), 'rb');
       if Shp = nil then exit;
@@ -319,6 +327,7 @@ begin
         if ShpObj = nil then continue;
         X := ShpObj^.padfX[0];
         Y := ShpObj^.padfY[0];
+        if NeedsProjTransform then ProjTrans.Transform(X, Y);
         shpapi.SHPDestroyObject(ShpObj);
         AddNode(Dbf, I, X, Y);
       end;
@@ -334,55 +343,54 @@ end;
 {==================== LINK FUNCTIONS =======================================}
 
 function GetLinkType(Dbf: DBFHandle; I: Integer): Integer;
-// Return the type of link appearing as the I-th record of a links dBase file.
-
 var
-  J, K: Integer;
-  S: String;
+  J: Integer;
+  K: Integer;
+  S: string;
 begin
-  Result := project.lPipe;
+  Result := project.ltPipe;
   if Dbf <> nil then
   begin
-    // J is the 0-based field index for link type in the dBase file
     J := ShpOptions.LinkAttribs[lType];
     if J >= 0 then
     begin
-      if FieldType[J] = FTString then
+      if FieldType[J] = FTstring then
       begin
-        S := shpapi.DBFReadStringAttribute(Dbf, I, J);
-        if StartsText('PUMP', S) then Result := project.lPump
-        else if StartsText('VALVE', S) then Result := project.lValve;
+        S := shpapi.DBFReadstringAttribute(Dbf, I, J);
+        if StartsText('PUMP', S) then
+          Result := project.ltPump
+        else if StartsText('VALVE', S) then
+          Result := project.ltValve;
       end;
       if FieldType[J] = FTInteger then
       begin
         K := shpapi.DBFReadIntegerAttribute(Dbf, I, J);
-        if K = project.lPump then Result := K
-        else if K = project.lValve then Result := K;
+        if K = project.ltPump then
+          Result := K
+        else if K = project.ltValve then
+          Result := K;
       end;
     end;
   end;
 end;
 
 procedure AddLinkVertices(ShpObj: PShpObject; LinkIndex: Integer);
-//  Add the vertex points contained in a polyline shape object to those
-//  of the network link with index LinkIndex.
-
 var
-  X: array[0..Project.MAX_VERTICES] of Double;
-  Y: array[0..Project.MAX_VERTICES] of Double;
-  X0, Y0: Double;
-  X1, Y1: Double;
-  N, Vcount, J: Integer;
+  X:      array[0..Project.MAX_VERTICES] of Double;
+  Y:      array[0..Project.MAX_VERTICES] of Double;
+  X0:     Double;
+  Y0:     Double;
+  X1:     Double;
+  Y1:     Double;
+  P:      TDoublePoint;
+  J:      Integer;
+  N:      Integer;
+  Vcount: Integer;
 begin
-  // Find the number of vertices in the shape object and set the
-  // number currently added to 0
   N := Min(ShpObj^.nVertices, project.MAX_VERTICES);
   Vcount := 0;
-
-  // If there are at least 3 vertices (that include the line endpoints)
   if N >= 3 then
   begin
-
     // Save the starting vertex coordinates
     X0 := ShpObj^.padfX[0];
     Y0 := ShpObj^.padfY[0];
@@ -395,11 +403,15 @@ begin
       Y1 := ShpObj^.padfY[J];
 
       // Check that this vertex doesn't lay on top of the previous one
-      if (X1 = X0) or (Y1 = Y0) then continue;
+      if (X1 = X0)
+      or (Y1 = Y0) then
+        continue;
 
       // Store the vertex's coordinates in the local arrays
-      X[Vcount] := X1;
-      Y[Vcount] := Y1;
+      P := DoublePoint(X1, Y1);
+      if NeedsProjTransform then ProjTrans.Transform(P.X, P.Y);
+      X[Vcount] := P.X;
+      Y[Vcount] := P.Y;
       Inc(Vcount);
 
       // Replace the previous vertex coordinates
@@ -414,22 +426,20 @@ begin
 end;
 
 function GetLinkValue(Dbf: DBFHandle; I: Integer; J: Integer): Single;
-// Retrieve the value of link property J from the corresponding attribute
-// in the I-th record of dBase file Dbf.
-
 var
-  V: Double;
+  V: Double = 0;
 begin
   GetNumericalAttrib(Dbf, I, ShpOptions.LinkAttribs[J], V);
   Result := V;
 end;
 
 function LinkUcf(Attrib: Integer): Double;
+//
 // Compute a units conversion factor for an imported link attribute.
-
+//
 var
-  V: Single;
-  S: String;
+  V: Single = 0;
+  S: string;
 begin
   Result := 1;
   S := ShpOptions.LinkUnits[Attrib];
@@ -438,19 +448,23 @@ begin
   // Unit conversion factor for length
   if Attrib = lLength then
   begin
-    if SameText(S, 'METERS') and (project.GetUnitsSystem = usUS) then
+    if SameText(S, 'METERS') and
+    (project.GetUnitsSystem = usUS) then
       Result := 3.28084
-    else if SameText(S, 'FEET') and (project.GetUnitsSystem = usSI) then
+    else if SameText(S, 'FEET')
+    and (project.GetUnitsSystem = usSI) then
       Result := 1 / 3.28084;
   end;
 
   // Unit conversion factor for diameter
   if Attrib = lDiam then
   begin
-    if SameText(S, 'MILLIMETERS') and
-      (project.GetUnitsSystem = usUS) then Result := 0.03937
-    else if SameText(S, 'INCHES') and
-      (project.GetUnitsSystem = usSI) then Result := 25.4;
+    if SameText(S, 'MILLIMETERS')
+    and (project.GetUnitsSystem = usUS) then
+      Result := 0.03937
+    else if SameText(S, 'INCHES')
+    and (project.GetUnitsSystem = usSI) then
+      Result := 25.4;
   end;
 
   // Unit conversion factor for D-W roughness
@@ -459,139 +473,99 @@ begin
     epanet2.ENgetoption(EN_HEADLOSSFORM, V);
     if Round(V) = EN_DW then
     begin
-      if SameText(S, 'MILLIMETERS') and
-        (project.GetUnitsSystem = usUS) then Result := 39.37
-      else if SameText(S, 'INCHES') and
-        (project.GetUnitsSystem = usSI) then Result := 25.4
+      if SameText(S, 'MILLIMETERS')
+      and (project.GetUnitsSystem = usUS) then
+        Result := 39.37
+      else if SameText(S, 'INCHES')
+      and (project.GetUnitsSystem = usSI) then
+        Result := 25.4
     end;
   end;
 end;
 
 procedure SetLinkProps(Dbf: DBFHandle; I: Integer; LinkType: Integer; LinkIndex: Integer);
+//
 // Set the properties of a link of type LinkType with index LinkIndex to the
-// corresponding attributes stored in the I-th record of thr dBase file.
-
+// corresponding attributes stored in the I-th record of the dBase file.
+//
 var
-  Len, Diameter, Roughness: Single;
-  J: Integer;
-  S: String;
+  V:         Single;
+  Len:       Single = 10;
+  Diameter:  Single = 10;
+  Roughness: Single = 0;
+  S:         string = '';
 begin
   // Only pipe links have assigned properties
-  if LinkType <> lPipe then exit;
+  if LinkType <> ltPipe then exit;
 
   // Set link description
-  GetStringAttrib(Dbf, I, ShpOptions.LinkAttribs[lDescrip], S);
+  GetstringAttrib(Dbf, I, ShpOptions.LinkAttribs[lDescrip], S);
   if Length(S) > 0 then epanet2.ENsetcomment(EN_Link, LinkIndex, PAnsiChar(S));
 
-  // Get default pipe length
-    Len := StrToFloatDef(project.DefProps[4], 0.0);
+  // Get current pipe length
+  epanet2.ENgetlinkvalue(LinkIndex, EN_LENGTH, Len);
 
   // Override default length if supplied in dBse file
   if ShpOptions.LinkAttribs[lLength] >= 0 then
-    Len := GetLinkValue(Dbf, I, lLength) * LinkUcf(lLength)
+  begin
+    V := GetLinkValue(Dbf, I, lLength) * LinkUcf(lLength);
+    if V > 0 then Len := V;
+  end
 
   // Or compute it if that option was selected
-  else if project.AutoLength or ShpOptions.ComputeLengths then
-    Len := project.FindLinkLength(LinkIndex) * LinkUcf(llength);
+  else if project.AutoLength
+  or ShpOptions.ComputeLengths then
+  begin
+    V := project.FindLinkLength(LinkIndex) * LinkUcf(llength);
+    if V > 0 then Len := V;
+  end;
 
   // Retrieve pipe diameter
+  ENgetlinkvalue(LinkIndex, EN_DIAMETER, Diameter);
   if ShpOptions.LinkAttribs[lDiam] >= 0 then
-    Diameter := GetLinkValue(Dbf, I, lDiam) * LinkUcf(lDiam)
-  else
-    Diameter := StrToFloatDef(project.DefProps[5], 0.0);
+  begin
+    V := GetLinkValue(Dbf, I, lDiam) * LinkUcf(lDiam);
+    if V > 0 then Diameter := V;
+  end;
 
   // Retrieve pipe roughness
+  ENgetlinkvalue(LinkIndex, EN_ROUGHNESS, Roughness);
   if ShpOptions.LinkAttribs[lRough] >= 0 then
-    Roughness := GetLinkValue(Dbf, I, lRough) * LinkUcf(lRough)
-  else
-    Roughness := StrToFloatDef(project.DefProps[6], 0.0);
+  begin
+    V := GetLinkValue(Dbf, I, lRough) * LinkUcf(lRough);
+    if V > 0 then Roughness := V;
+  end;
 
   // Assign properties to the pipe (last argument is for minor loss coeff.)
-    epanet2.ENsetpipedata(LinkIndex, Len, Diameter, Roughness, 0.0);
-end;
-
-function GetLinkID(Dbf: DBFHandle; LinkType: Integer; I: Integer): String;
-// Retrieve the ID string for the I-th record in a links dBase file.
-
-var
-  J, Index: Integer;
-  ID: String;
-begin
-  // Try reading ID from dBase file
-  ID := '';
-  if Dbf <> nil then
-  begin
-    J := ShpOptions.LinkAttribs[lID];
-    if J >= 0 then ID := GetID(Dbf, I, J);
-  end;
-
-  // Check if ID used by another link
-  if Length(ID) > 0 then
-  begin
-    epanet2.ENgetlinkindex(PAnsiChar(ID), Index);
-    if Index > 0 then ID := '';
-  end;
-
-  // If ID still blank then find an unused ID
-  if Length(ID) = 0 then
-    ID := projectbuilder.FindUnusedID(cLinks, LinkType);
-  Result := ID;
-end;
-
-function NewLink(Dbf: DBFHandle; I: Integer; StartNode: String; EndNode: String): Integer;
-// Add a new link to the project between nodes StartNode and EndNode.
-
-var
-  LinkType, LinkIndex, Err: Integer;
-  LinkID: String;
-begin
-  // Determine the link's type
-  Result := 0;
-  LinkType := GetLinkType(Dbf, I);
-  if LinkType = lValve then LinkType := EN_TCV;
-  
-  // Assign it an ID name
-  LinkID := GetLinkID(Dbf, LinkType, I);
-  
-  // Try adding it to the project
-  Err := epanet2.ENaddlink(Pchar(LinkID), LinkType, PChar(StartNode),
-    PChar(EndNode), LinkIndex);
-    
-  // Set its properties -- return its index in the project's list of links
-  if Err = 0 then
-  begin
-    SetLinkProps(Dbf, I, LinkType, LinkIndex);
-    Result := LinkIndex;
-  end;
+  epanet2.ENsetpipedata(LinkIndex, Len, Diameter, Roughness, 0.0);
 end;
 
 function GetNearestNode(P: TDoublePoint): Integer;
+//
 //  Find the index of the project node closest to point P that is
 //  within the snap tolerance. Return 0 if there is no such node.
-
+//
 var
-  J, Jmin: Integer;
-  D, Dmin, Dsnap, Xj, Yj: Double;
-  Pj: TDoublePoint;
+  J:     Integer;
+  Jmin:  Integer;
+  D:     Double;
+  Dmin:  Double;
+  Pj:    TDoublePoint = (X: 0; Y: 0);
 begin
   Jmin := 0;
   Dmin := 1.0e40;
 
-  // Set snap tolerance in meters
-  Dsnap := ShpOptions.SnapTol + 0.0001;
-  if ShpOptions.SnapUnits = muFeet then Dsnap := Dsnap * 0.3048;
-
   // Convert X,Y in degrees to meters
-  if ShpOptions.CoordUnits = muDegrees then
+  if HasDegreesUnits then
     P := mapcoords.FromWGS84ToWebMercator(P);
 
   // Examine each project node
-  for J := 1 to project.GetItemCount(cNodes) do
+  for J := 1 to project.GetItemCount(ctNodes) do
   begin
 
     // Find Manhattan distance between point P and the node
     if not project.GetNodeCoord(J, Pj.X, Pj.Y) then continue;
-    if ShpOptions.CoordUnits = muDegrees then
+    if HasDegreesUnits then
       Pj := mapcoords.FromWGS84ToWebMercator(Pj);
     D := mapcoords.ManhattanDistance(P, Pj);
 
@@ -604,16 +578,21 @@ begin
   end;
 
   // Check that minimum distance is within snap tolerance
-  if Dmin <= Dsnap then Result := Jmin else Result := 0;
+  if Dmin * SnapUcf <= SnapTol then
+    Result := Jmin
+  else
+    Result := 0;
 end;
 
-function GetEndNode(Dbf: DBFHandle; P: TDoublePoint; I: Integer; WhichEnd: Integer): String;
+function GetEndNode(Dbf: DBFHandle; P: TDoublePoint; I: Integer;
+  WhichEnd: Integer): string;
+//
 // Get the name of a node at one end of the I-th link read from a shape file.
-
+//
 var
   J: Integer;
 begin
-  // See if the associated dBase file contains the link's node name
+  // See if project already contains link's end node name
   Result := '';
   if Dbf <> nil then
   begin
@@ -625,64 +604,115 @@ begin
     if epanet2.ENgetnodeindex(PAnsiChar(Result), J) > 0 then Result := '';
   end;
 
-  // Otherwise see if link node is within snap tolerance of an existing node
+  // Link's end node not already in project
   if Length(Result) = 0 then
   begin
-    J := GetNearestNode(P);
-    if J > 0 then Result := project.GetID(cNodes, J)
+    if NeedsProjTransform then
+      ProjTrans.Transform(P.X, P.Y);
 
-    // Otherwise add a new node
-    else begin
+    // See if link's node is within snap tolerance of an existing node
+    J := GetNearestNode(P);
+    if J > 0 then
+      Result := project.GetID(ctNodes, J)
+
+    // Otherwise add a new node and return its assigned name
+    else
+    begin
       J := AddNode(Nil, I, P.X, P.Y);
-      if J > 0 then Result := project.GetID(cNodes, J);
+      if J > 0 then
+        Result := project.GetID(ctNodes, J);
     end;
   end;
 end;
 
-procedure AddLink(ShpObj: PShpObject; Dbf: DBFHandle; I: Integer);
-// Add a new link to the project from the I-th object in a links shape file.
-
+function GetLinkID(Dbf: DBFHandle; LinkType: Integer; I: Integer;
+  var Index: Integer): string;
 var
-  StartNode: String;
-  EndNode: String;
-  LinkIndex: Integer;
-  N: Integer;
-  P: mapcoords.TDoublePoint;
+  J:  Integer;
+  ID: string;
 begin
-  // Find number of vertices in the link
+  // Try reading ID from dBase file
+  ID := '';
+  Index := 0;
+  if Dbf <> nil then
+  begin
+    J := ShpOptions.LinkAttribs[lID];
+    if J >= 0 then ID := GetID(Dbf, I, J);
+  end;
+
+  // Check if ID used by another link
+  if Length(ID) > 0 then
+  begin
+    epanet2.ENgetlinkindex(PAnsiChar(ID), Index);
+  end
+  else
+    ID := projectbuilder.FindUnusedID(ctLinks, LinkType);
+  Result := ID;
+end;
+
+procedure AddLink(ShpObj: PShpObject; Dbf: DBFHandle; I: Integer);
+var
+  StartNode:   string;
+  EndNode:     string;
+  LinkID:      string;
+  LinkIndex:   Integer = 0;
+  LinkType:    Integer;
+  N:           Integer;
+  P:           mapcoords.TDoublePoint;
+begin
   N := ShpObj^.nVertices;
   if N < 2 then exit;
+  LinkType := GetLinkType(Dbf, I);
+  // Valve type assumed to be Throttle Control Valve (TCV)
+  if LinkType = ltValve then LinkType := EN_TCV;
+  LinkID := GetLinkID(Dbf, LinkType, I, LinkIndex);
 
-  // Find start node of the link
-  P.X := ShpObj^.padfX[0];
-  P.Y := ShpObj^.padfY[0];
-  StartNode := GetEndNode(Dbf, P, I, lStartNode);
-  if Length(StartNode) = 0 then exit;
+  // If link doesn't exist then create it
+  if LinkIndex = 0 then
+  begin
+    // Find start node of the link
+    P.X := ShpObj^.padfX[0];
+    P.Y := ShpObj^.padfY[0];
+    StartNode := GetEndNode(Dbf, P, I, lStartNode);
+    if Length(StartNode) = 0 then exit;
 
-  // Find end node of the link
-  P.X := ShpObj^.padfX[N-1];
-  P.Y := ShpObj^.padfY[N-1];
-  EndNode := GetEndNode(Dbf, P, I, lEndNode);
-  if Length(EndNode) = 0 then exit;
+    // Find end node of the link
+    P.X := ShpObj^.padfX[N-1];
+    P.Y := ShpObj^.padfY[N-1];
+    EndNode := GetEndNode(Dbf, P, I, lEndNode);
+    if Length(EndNode) = 0 then exit;
 
-  // Add the link and its vertices to the project
-  LinkIndex := NewLink(Dbf, I, StartNode, EndNode);
-  if LinkIndex > 0 then AddLinkVertices(ShpObj, LinkIndex);
+    // Add the link to the project
+    if epanet2.ENaddlink(Pchar(LinkID), LinkType, PChar(StartNode),
+      PChar(EndNode), LinkIndex) > 0 then exit;
+    ENsetpipedata(LinkIndex,
+      StrToFloatDef(project.DefProps[4], 0.0),
+      StrToFloatDef(project.DefProps[5], 0.0),
+      StrToFloatDef(project.DefProps[6], 0.0), 0.0);
+  end;
+
+  // Assign properties and vertices to the link
+  if LinkIndex > 0 then
+  begin
+    SetLinkProps(Dbf, I, LinkType, LinkIndex);
+    AddLinkVertices(ShpObj, LinkIndex);
+  end;
 end;
 
 procedure LoadLinks;
-// Load contents of a Links shape file and its dBase file into the project.
-
+//
+// Load contents of a Links shapefile and its dBase file into the project.
+//
 var
-  Filename: String;
-  Shp: SHPHandle;
-  ShpObj: PShpObject;
-  Dbf: DBFHandle;
-  Count, I: Integer;
-  ShapeType: Integer;
-  MinBound: array [0..3] of Double;
-  MaxBound: array [0..3] of Double;
-  X, Y: Double;
+  Filename:    string;
+  Shp:         SHPHandle;
+  ShpObj:      PShpObject;
+  Dbf:         DBFHandle;
+  Count:       Integer;
+  I:           Integer;
+  ShapeType:   Integer;
+  MinBound:    array [0..3] of Double;
+  MaxBound:    array [0..3] of Double;
 begin
   with ShpOptions do
   begin
@@ -693,7 +723,7 @@ begin
     Dbf := nil;
     try
 
-      // Open the shape file and its dBase file
+      // Open the shapefile and its dBase file
       Shp := shpapi.SHPOpen(PAnsiChar(FileName), 'rb');
       if Shp = nil then exit;
       Filename := ChangeFileExt(LinkFileName, '.dbf');
@@ -723,18 +753,105 @@ begin
   end;
 end;
 
-procedure LoadShapeFile(theShpOptions: TShpOptions);
-// Load node and link data from shape files into the current project.
-
+procedure SetSnapParams;
+var
+  MapUnits: Integer;
 begin
+  SnapTol := ShpOptions.SnapTol + 0.0001;
+  if ShpOptions.SnapUnits = muFeet then
+    SnapTol := SnapTol * 0.3048;
+
+  if NeedsProjTransform then
+    MapUnits := project.MapUnits
+  else
+    MapUnits := ShpOptions.CoordUnits;
+
+  SnapUcf := 1;
+  HasDegreesUnits := false;
+  if MapUnits = muFeet then
+    SnapUcf := 0.3048
+  else if MapUnits = muDegrees then
+    HasDegreesUnits := true;
+end;
+
+function SetNeedsProjTransform: Boolean;
+//
+//  Check if shapefile coordinates need to be transformed to project
+//  coordinates
+//
+var
+  Extent: TDoubleRect;
+begin
+  Result := true;
+  NeedsProjTransform := false;
+
+  // Importing to an empty project -- no transform needed
+  if project.IsEmpty then
+  begin
+    project.MapUnits := ShpOptions.CoordUnits;
+    project.MapEPSG:= ShpOptions.Epsg;
+    exit;
+  end;
+
+  // Set source & destination projection EPSGs
+  SrcEpsg := ShpOptions.Epsg;
+  DstEpsg := project.MapEpsg;
+  if project.MapUnits = muDegrees then
+    DstEpsg := 4036;
+
+  // Check if projection transform not needed
+  if SrcEpsg = DstEpsg then exit;
+
+  // Check if projection transform can be made
+  if (SrcEpsg > 0) and (DstEpsg > 0) then
+  begin
+    Extent := MainForm.MapFrame.Map.Extent;
+    Result := CanProjectionTransform(
+      IntToStr(SrcEpsg), IntToStr(DstEpsg), Extent);
+  end
+  else if (SrcEpsg > 0) or (DstEpsg > 0) then
+    Result := false
+  else
+    exit;
+  NeedsProjTransform := Result;
+
+  // Display message if can't transform
+  if Result = false then
+    utils.MsgDlg(rsTransFail, rsNoShpTrans, mtInformation, [mbOk], MainForm);
+end;
+
+function LoadShapeFile(theShpOptions: TShpOptions): Boolean;
+begin
+  // See if coordinates need to be transformed
+  Result := false;
   ShpOptions := theShpOptions;
-  project.MapUnits := ShpOptions.CoordUnits;
-  LoadNodes;
-  LoadLinks;
-  MainForm.MapFrame.SetExtent(MapCoords.GetBounds(MainForm.MapFrame.GetExtent));
-  MainForm.MapFrame.DrawFullextent;
-  project.HasChanged := True;
-  project.UpdateResultsStatus;
+  if SetNeedsProjTransform = false then exit;
+
+  // Set parameters used with snap tolerance bewteen nodes
+  SetSnapParams;
+
+  ProjTrans := TProjTransform.Create;
+  try
+    // Set the projections required for coordinate transform
+    if NeedsProjTransform then
+      ProjTrans.SetProjections(IntToStr(SrcEPSG), IntToStr(DstEpsg));
+
+    // Load contents of node & link shapefiles into project
+    LoadNodes;
+    LoadLinks;
+
+    // Display the network map
+    MainForm.MapFrame.SetExtent(MapCoords.GetBounds(MainForm.MapFrame.GetExtent));
+    MainForm.MapFrame.DrawFullextent;
+
+    // Update project's status
+    project.HasChanged := true;
+    project.UpdateResultsStatus;
+    Result := true;
+
+  finally
+    ProjTrans.Free;
+  end;
 end;
 
 end.

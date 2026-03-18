@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       webmap
  Description:  class that retrieves an image from a web map service
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/26/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 // Uses the TMapServer component in the webmapserver unit to
@@ -34,18 +32,20 @@ const
   BingSatelliteMap = 4;
 
   // Map provider names
-  MapProviders: array[1..4] of String =
-    ('ArcGIS World Street Map', 'OpenStreetMap Standard', 'Virtual Earth Bing',
+  MapProviders: array[1..4] of string =
+    ('ArcGIS World Street Map',
+     'OpenStreetMap Standard',
+     'Virtual Earth Bing',
      'Virtual Earth Aerial');
 
 type
   TWebMap = class(TObject)
     Public
-      MapSource: Integer;
-      ZoomLevel: Integer;
-      BoundsRect: TDoubleRect;
-      CenterPixel: TPoint;
+      MapSource:    Integer;
+      ZoomLevel:    Integer;
+      BoundsRect:   TDoubleRect;
       CenterLatLon: TDoublePoint;
+      CenterPixel:  TPoint;
 
       constructor Create(aBitmap: TBitmap);
       destructor  Destroy; override;
@@ -59,9 +59,12 @@ type
       function  FromPixelToLatLon(Pixel: TPoint): TDoublePoint;
       function  GetBoundingBox(W: Integer; H: Integer): TDoubleRect;
       procedure SetBoundsRect(W: Integer; H: Integer);
+      procedure SetCenter(X, Y: Double);
+      procedure SetSource(aMapSource: Integer);
+
     Private
-      MapSize: Integer;
-      Bitmap: TBitmap;
+      MapSize:   Integer;
+      Bitmap:    TBitmap;
       MapServer: TMapServer;
   end;
 
@@ -86,13 +89,31 @@ end;
 function TWebMap.GetImage(W: Integer; H: Integer): Boolean;
 begin
   Result := false;
-  if (MapSource < 1) or (MapSource > High(Mapproviders)) then exit;
+  if (MapSource < 1)
+  or (MapSource > High(Mapproviders)) then
+    exit;
   if MapServer = nil then exit;
   try
-    MapServer.SetMapProvider(MapProviders[MapSource]);
     MapServer.GetMapImage(CenterLatLon.X, CenterLatLon.Y, W, H, ZoomLevel, Bitmap);
     Result := true;
   except
+  end;
+end;
+
+procedure TWebMap.SetCenter(X, Y: Double);
+begin
+  CenterLatLon.X := X;
+  CenterLatLon.Y := Y;
+  CenterPixel := FromLatLonToPixel(CenterLatLon);
+end;
+
+procedure TWebMap.SetSource(aMapSource: Integer);
+begin
+  if (aMapSource >= 1)
+  and (aMapSource <= 4) then
+  begin
+    MapSource := aMapSource;
+    if MapServer <> nil then MapServer.SetMapProvider(MapProviders[MapSource]);
   end;
 end;
 
@@ -114,8 +135,10 @@ end;
 procedure TWebMap.AdjustZoomLevel(Dz: Integer; Dx: Integer; Dy: Integer);
 begin
   ZoomLevel := ZoomLevel + Dz;
-  if Dz > 0 then AdjustOffset(-Dx div 2, -Dy div 2)
-  else AdjustOffset(Dx div 2, Dy div 2);
+  if Dz > 0 then
+    AdjustOffset(-Dx div 2, -Dy div 2)
+  else
+    AdjustOffset(Dx div 2, Dy div 2);
 end;
 
 procedure TWebMap.SetBoundsRect(W: Integer; H: Integer);

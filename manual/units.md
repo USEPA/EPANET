@@ -17,7 +17,7 @@
 |Length          | feet                    | meters                    |
 |Minor Loss Coeff. | unitless              | unitless                  |
 |Power             | horsepower            | kilowatts                 |
-|Pressure          | pounds per square inch (psi)  | meters            |
+|Pressure          | psi (pounds per square inch)<br>feet | meters<br>kPa (kilopascals)<br>bar<br> |
 |Reaction Coeff. (Bulk) | 1/day (1st-order)| 1/day (1st-order)         |
 |Reaction Coeff. (Wall) | mass/sq-foot/day (0-order)<br> feet/day (1st-order) | mass/sq-meter/day (0-order)<br> meters/day (1st-order) |
 |Roughness Coeff. | unitless (Hazen-Williams)<br>millifeet (Darcy-Weisbach)<br>seconds/meter^^1/3^^ (Chezy-Manning)|unitless (Hazen-Williams)<br>millimeters (Darcy-Weisbach)<br>seconds/meter^^1/3^^ (Chezy-Manning) |

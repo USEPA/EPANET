@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       labeleditor
- Description:  a borderless form for entering a map label's text
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  a borderless form for entering a line of text
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit labeleditor;
@@ -42,12 +40,12 @@ implementation
 
 { TLabelEditorForm }
 
+uses
+  config;
+
 procedure TLabelEditorForm.FormCreate(Sender: TObject);
 begin
-  Edit1.Left := 0;
-  Edit1.Top := 0;
-  ClientWidth := Edit1.Width;
-  ClientHeight := Edit1.Height;
+  Font.Size := config.FontSize;
 end;
 
 procedure TLabelEditorForm.FormClose(Sender: TObject;

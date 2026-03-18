@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       maprenderer
  Description:  draws the pipe network on the Canvas of a TMap object
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit maprenderer;
@@ -30,16 +28,21 @@ uses
   project, mapthemes, mapoptions, maplabel, config;
 
 var
-  LabelColor, ArrowColor, NotationColor, OutlineColor: TColor;
+  LabelColor:    TColor;
+  ArrowColor:    TColor;
+  NotationColor: TColor;
+  OutlineColor:  TColor;
 
 procedure DrawArrowHead(Map: TMap; X: Integer; Y: Integer; Size: Integer;
   Color: TColor; Direction: Integer; Asin: Double; Acos: Double);
 var
-  X1, X2: Integer;
-  Y1, Y2: Integer;
-  S: Double;
-  Poly  : array[0..2] of TPoint;
-  Z: Double;
+  X1:   Integer;
+  X2:   Integer;
+  Y1:   Integer;
+  Y2:   Integer;
+  S:    Double;
+  Z:    Double;
+  Poly: array[0..2] of TPoint;
 begin
   S := Size * Direction;
   Z := (-Acos + Asin)*S;
@@ -66,7 +69,9 @@ procedure DrawPump(Map: TMap; X: Integer; Y: Integer; Size: Integer; Color: TCol
       Direction: Integer; Asin: Double; Acos: Double);
 var
   Poly: array[0..3] of TPoint;
-  Xi, Yi, R: Integer;
+  Xi:   Integer;
+  Yi:   Integer;
+  R:    Integer;
 begin
   R := 2*Size;
   Poly[0] := Point(X, Y);
@@ -108,7 +113,8 @@ begin
   begin
     if not project.GetVertexCoord(LinkIndex, J, X, Y) then continue;
     P := Map.WorldToScreen(X, Y);
-    if (abs(P.x - P1.x) > VERTEX_TOL) or (abs(P.y - P1.y) > VERTEX_TOL) then
+    if (abs(P.x - P1.x) > VERTEX_TOL)
+    or (abs(P.y - P1.y) > VERTEX_TOL) then
     begin
       Map.Canvas.LineTo(P.X, P.Y);
       P1 := P;
@@ -122,17 +128,20 @@ begin
   Result := false;
   if Map.Options.ShowLinkArrows then
     Result := true
-  else if (LinkType = lPump) and Map.Options.ShowPumps then
+  else if (LinkType = ltPump) and Map.Options.ShowPumps then
     Result := true
-  else if (LinkType = lValve) and Map.Options.ShowValves then
+  else if (LinkType = ltValve) and Map.Options.ShowValves then
     Result := true;
 end;
 
 procedure DrawLinkSymbol(Map: TMap; LinkIndex: Integer; LinkType: Integer;
       P1: TPoint; P2: TPoint; Size: Integer; Color: TColor);
 var
-  P: TPoint;
-  Dx, Dy, Asin, Acos: Double;
+  P:    TPoint;
+  Dx:   Double;
+  Dy:   Double;
+  Asin: Double;
+  Acos: Double;
 begin
   // Link midpoint pixel
   P := Point((P1.X + P2.X) div 2, (P1.Y + P2.Y) div 2);
@@ -143,9 +152,9 @@ begin
   SinCos(arctan2(Dy, Dx), Asin, Acos);
 
   // Draw link symbol
-  if (Map.Options.ShowPumps) and (LinkType = lPump) then
+  if (Map.Options.ShowPumps) and (LinkType = ltPump) then
     DrawPump(Map, P.X, P.Y, Size, Color, Sign(Dx), Asin, Acos)
-  else if (Map.Options.ShowValves) and (LinkType = lValve) then
+  else if (Map.Options.ShowValves) and (LinkType = ltValve) then
     DrawValve(Map, P.X, P.Y, Size, Color, Asin, Acos);
   if Map.Options.ShowLinkArrows then
   begin
@@ -165,10 +174,11 @@ end;
 procedure DrawLinkID(Map:TMap; LinkIndex: Integer; P1: TPoint; P2: TPoint;
       Size: Integer);
 var
-  S      : String;
-  X, Y   : Integer;
+  S: string;
+  X: Integer;
+  Y: Integer;
 begin
-  S := project.GetID(cLinks, LinkIndex);
+  S := project.GetID(ctLinks, LinkIndex);
   X := (P1.X + P2.X) div 2;
   Y := (P1.Y + P2.Y) div 2;
   if (Abs(P2.Y - P1.Y) < Size) then
@@ -190,15 +200,13 @@ end;
 procedure DrawLinkValue(Map:TMap; LinkIndex: Integer; P1: TPoint; P2: TPoint;
       Size: Integer);
 var
-  S      : String;
-  V      : Single;
-  X, Y   : Integer;
-  Dx, Dy : Double;
-  Theta  : Double;
-  Rotation: Integer;
+  S: string;
+  V: Single;
+  X: Integer;
+  Y: Integer;
 begin
   // Retrieve link value as a string
-  V := mapthemes.GetCurrentThemeValue(cLinks, LinkIndex);
+  V := mapthemes.GetCurrentThemeValue(ctLinks, LinkIndex);
   if V = MISSING then
     S := 'N/A'
   else
@@ -208,33 +216,21 @@ begin
   X := (P1.X + P2.X) div 2;
   Y := (P1.Y + P2.Y) div 2;
 
-  Dx := (P2.X - P1.X);
-  Dy := (P2.Y - P1.Y);
-{
-  if Abs(Dy) < 1 then
-    Theta := 0
-  else
-    Theta := radtodeg(arctan2(dy, dx));
-  Rotation := Round(10 * Theta);
-}
-  // Link oriented horizontally - place text centered below link
+  // Find offset from mid-point
   if (Abs(P2.Y - P1.Y) < Size) then
   begin
     X := X - (Map.Canvas.TextWidth(S) div 2);
-    Y := Y + Size + 2;
+    Y := Y + Size;
   end
   else
   begin
-    X := X + Size + 2;
-//    if ((P1.Y < P2.Y) and (P1.X < P2.X)) then
-//      Y := Y - Size - Map.CharHeight
-//    else
-//      Y := Y + Size;
-    Y := Y - Map.CharHeight div 2;
+    X := X + Size;
+    if ((P1.Y < P2.Y) and (P1.X < P2.X)) then
+      Y := Y - Size - Map.CharHeight
+    else
+      Y := Y + Size;
   end;
-//  Map.Canvas.Font.Orientation := -Rotation;
   Map.Canvas.TextOut(X+2, Y+2, S);
-//  Map.Canvas.Font.Orientation := 0;
 end;
 
 procedure DrawLinkNotation(Map: TMap; LinkIndex: Integer; P1: TPoint;
@@ -260,7 +256,7 @@ end;
 procedure DrawReservoir(Map: TMap; X: Integer; Y: Integer; Size: Integer);
 var
   Poly: array[0..3] of TPoint;
-  W: Integer;
+  W:    Integer;
 begin
   if (Map.Options.ShowTanks) then
   begin
@@ -293,38 +289,39 @@ end;
 procedure DrawNodeID(Map: TMap; NodeIndex: Integer; NodeType: Integer;
       P: TPoint; Size: Integer);
 var
-  Offset: Integer;
+  Offset:   Integer;
   LinkSize: Integer;
 begin
   Offset := Size + Map.CharHeight + 1;
   LinkSize := Map.Options.LinkSize;
   if Map.Options.ShowLinkBorder then LinkSize := LinkSize + 2;
-  if (Map.Options.ShowTanks) and (NodeType <> nJunction) then
+  if (Map.Options.ShowTanks)
+  and (NodeType <> ntJunction) then
   begin
-    if NodeType = nReservoir then
+    if NodeType = ntReservoir then
       Offset := Offset + Size + 1
-    else if NodeType = nTank then
+    else if NodeType = ntTank then
       Offset := Offset + Size + 3;
   end;
-  Map.Canvas.TextOut(P.X+LinkSize, P.Y-Offset, project.GetID(cNodes, NodeIndex));
+  Map.Canvas.TextOut(P.X+LinkSize, P.Y-Offset, project.GetID(ctNodes, NodeIndex));
 end;
 
 procedure DrawNodeValue(Map: TMap; NodeIndex: Integer; NodeType: Integer;
       P: TPoint; Size: Integer);
 var
-  Offset: Integer;
+  Offset:   Integer;
   LinkSize: Integer;
-  V: Single;
-  S: String;
+  V:        Single;
+  S:        string;
 begin
-  V := mapthemes.GetCurrentThemeValue(cNodes, NodeIndex);
+  V := mapthemes.GetCurrentThemeValue(ctNodes, NodeIndex);
   if V = MISSING then
     S := 'N/A'
   else
     S := FloatToStrF(V, ffFixed, 7, config.DecimalPlaces);
   LinkSize := Map.Options.LinkSize;
   if Map.Options.ShowLinkBorder then LinkSize := LinkSize + 2;
-  if NodeType = nTank then
+  if NodeType = ntTank then
     Offset := Size + 6
   else
     Offset := Size + 3;
@@ -333,22 +330,22 @@ end;
 
 procedure DrawAllLinks(Map: TMap);
 var
-  I: Integer;
-  N1: Integer = 0;
-  N2: Integer = 0;
-  X1: Double = 0;
-  Y1: Double = 0;
-  X2: Double = 0;
-  Y2: Double = 0;
-  P1, P2: TPoint;
-  LinkSize: Integer;
-  LinkType: Integer;
-  ColorIndex: Integer = 0;
-  LinkColor: TColor;
-  DrawSymbols: Boolean;
+  I:            Integer;
+  N1:           Integer = 0;
+  N2:           Integer = 0;
+  X1:           Double = 0;
+  Y1:           Double = 0;
+  X2:           Double = 0;
+  Y2:           Double = 0;
+  P1, P2:       TPoint;
+  LinkSize:     Integer;
+  LinkType:     Integer;
+  ColorIndex:   Integer = 0;
+  LinkColor:    TColor;
+  DrawSymbols:  Boolean;
   DrawNotation: Boolean;
 begin
-  for I := 1 to project.GetItemCount(project.cLinks) do
+  for I := 1 to project.GetItemCount(project.ctLinks) do
   begin
     // Get link's start and end node coords.
     if not project.GetLinkNodes(I, N1, N2) then continue;
@@ -402,22 +399,22 @@ end;
 
 procedure DrawAllNodes(Map: TMap);
 var
-  I, Size: Integer;
-  C: TColor;
+  I, Size:    Integer;
+  C:          TColor;
   ColorIndex: Integer = 0;
-  X: Double = 0;
-  Y: Double = 0;
-  P: TPoint;
+  X:          Double = 0;
+  Y:          Double = 0;
+  P:          TPoint;
 begin
   Map.Canvas.Pen.Width := 1;
-  for I := 1 to project.GetItemCount(project.cNodes) do
+  for I := 1 to project.GetItemCount(project.ctNodes) do
   begin
     if not project.GetNodeCoord(I, X, Y) then continue;
     P := Map.WorldToScreen(X, Y);
 
     Map.Canvas.Pen.Color := OutlineColor;
     C := mapthemes.GetNodeColor(I, ColorIndex);
-    if C < 0 then continue;
+    if (C < 0) or (C = clNone) then continue;
     Map.Canvas.Brush.Color := C;
     if Map.Options.ShowNodesBySize then
       Size := Map.Options.NodeSize + ColorIndex
@@ -427,26 +424,26 @@ begin
       Map.Canvas.Pen.Color := Map.Canvas.Brush.Color;
 
     case project.GetNodeType(I) of
-    nJunction:
-      if Map.Options.ShowJunctions then
-      begin
-        Map.Canvas.Ellipse(P.X - Size, P.Y - Size, P.X + Size, P.Y + Size);
-      end;
-    nReservoir:
-      DrawReservoir(Map, P.X, P.Y, Size);
-    nTank:
-      DrawTank(Map, P.X, P.Y, Size);
+      ntJunction:
+        if Map.Options.ShowJunctions then
+        begin
+          Map.Canvas.Ellipse(P.X - Size, P.Y - Size, P.X + Size, P.Y + Size);
+        end;
+      ntReservoir:
+        DrawReservoir(Map, P.X, P.Y, Size);
+      ntTank:
+        DrawTank(Map, P.X, P.Y, Size);
     end;
   end;
 end;
 
 procedure DrawAllLabels(Map: TMap);
 var
-  I: Integer;
-  P: TPoint;
-  MapLabel: TMapLabel;
+  I:         Integer;
+  P:         TPoint;
+  MapLabel:  TMapLabel;
   SavedFont: TFont;
-  Text: string;
+  Text:      string;
 begin
   if Map.Options.NotationOpaque then
   begin
@@ -476,11 +473,13 @@ end;
 
 procedure DrawAllNodeNotations(Map: TMap);
 var
-  I, Size, T: Integer;
+  I:          Integer;
+  Size:       Integer;
+  T:          Integer;
   ColorIndex: Integer = 0;
-  X: Double = 0;
-  Y: Double = 0;
-  P: TPoint;
+  X:          Double = 0;
+  Y:          Double = 0;
+  P:          TPoint;
   SavedColor: TColor;
 begin
   with Map.Canvas do
@@ -491,7 +490,7 @@ begin
     if not Map.Options.NotationOpaque then Brush.Style := bsClear;
   end;
 
-  for I := 1 to project.GetItemCount(project.cNodes) do
+  for I := 1 to project.GetItemCount(project.ctNodes) do
   begin
     if not project.GetNodeCoord(I, X, Y) then continue;
     P := Map.WorldToScreen(X, Y);
@@ -535,33 +534,36 @@ begin
 end;
 
 procedure DrawNetwork(Map: TMap);
+var
+  ShowNodeNotation: Boolean;
 begin
   // Assign colors and character height
   Setup(Map);
 
   // Draw all links (including symbols & notation)
   Map.Canvas.Pen.JoinStyle := pjsBevel;
-  if Map.Options.ShowLinks then
-    DrawAllLinks(Map);
+  if Map.Options.ShowLinks then DrawAllLinks(Map);
   Map.Canvas.Pen.Width := 1;
   Map.Canvas.Pen.Cosmetic := true;
 
   // Draw all nodes
   if Map.Options.ShowNodes then
-    DrawAllNodes(Map);
-
-  // Draw node notations
-  if Map.ZoomLevel >= Map.Options.NotationZoom then
   begin
-    if Map.Options.ShowNodes and
-      (Map.Options.ShowNodeIDs or
-      (Map.Options.ShowNodeValues and (mapthemes.NodeTheme > 0))) then
-      DrawAllNodeNotations(Map);
+    DrawAllNodes(Map);
+    ShowNodeNotation := false;
+    if (Map.ZoomLevel >= Map.Options.NotationZoom) then
+    begin
+      if Map.Options.ShowNodeIDs then
+        ShowNodeNotation := true
+      else if Map.Options.ShowNodeValues
+      and (mapthemes.NodeTheme > 0) then
+        ShowNodeNotation := true;
+    end;
+    if ShowNodeNotation then DrawAllNodeNotations(Map);
   end;
 
   // Draw map labels
-  if Map.Options.ShowLabels then
-    DrawAllLabels(Map);
+  if Map.Options.ShowLabels then DrawAllLabels(Map);
 end;
 
 end.

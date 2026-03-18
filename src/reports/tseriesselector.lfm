@@ -5,18 +5,16 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
   Width = 237
   ClientHeight = 300
   ClientWidth = 237
-  Color = clCream
-  ParentBackground = False
-  ParentColor = False
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
   DesignLeft = 1604
   DesignTop = 34
   object Notebook1: TNotebook
     Left = 0
-    Height = 272
-    Top = 28
+    Height = 270
+    Top = 30
     Width = 237
-    PageIndex = 1
+    PageIndex = 0
     Align = alClient
     TabOrder = 0
     object SeriesListPage: TPage
@@ -73,10 +71,10 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Images = mainForm.WindowImageList
         ImageIndex = 9
         ImageWidth = 16
-        OnClick = AddBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 0
+        OnClick = AddBtnClick
       end
       object EditBtn: TBitBtn
         Left = 51
@@ -88,10 +86,10 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Images = mainForm.WindowImageList
         ImageIndex = 10
         ImageWidth = 16
-        OnClick = EditBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 1
+        OnClick = EditBtnClick
       end
       object DeleteBtn: TBitBtn
         Left = 94
@@ -103,10 +101,10 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Images = mainForm.WindowImageList
         ImageIndex = 1
         ImageWidth = 16
-        OnClick = DeleteBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 2
+        OnClick = DeleteBtnClick
       end
       object UpBtn: TBitBtn
         Left = 137
@@ -118,10 +116,10 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Images = mainForm.WindowImageList
         ImageIndex = 12
         ImageWidth = 16
-        OnClick = UpBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 3
+        OnClick = UpBtnClick
       end
       object DnBtn: TBitBtn
         Left = 180
@@ -133,10 +131,10 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Images = mainForm.WindowImageList
         ImageIndex = 13
         ImageWidth = 16
-        OnClick = DnBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 4
+        OnClick = DnBtnClick
       end
       object SeriesListBox: TListBox
         Left = 8
@@ -169,7 +167,7 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Left = 8
         Height = 19
         Top = 205
-        Width = 107
+        Width = 108
         Caption = 'Plot Time Of Day'
         TabOrder = 8
       end
@@ -198,6 +196,7 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Items.Strings = (
           'Node'
           'Link'
+          'System'
         )
         Style = csOwnerDrawFixed
         TabOrder = 0
@@ -216,6 +215,7 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         Top = 77
         Width = 120
         TabOrder = 1
+        OnChange = ObjectNameEditChange
       end
       object Label5: TLabel
         Left = 12
@@ -232,6 +232,7 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         ItemHeight = 18
         Style = csOwnerDrawFixed
         TabOrder = 2
+        OnChange = ParamComboChange
       end
       object Label6: TLabel
         Left = 12
@@ -294,25 +295,22 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
   end
   object TopPanel: TPanel
     Left = 0
-    Height = 28
+    Height = 30
     Top = 0
     Width = 237
     Align = alTop
     Caption = 'Time Series Selector'
-    ClientHeight = 28
+    ClientHeight = 30
     ClientWidth = 237
-    Color = 16316664
     Font.Style = [fsBold]
-    ParentBackground = False
-    ParentColor = False
     ParentFont = False
     TabOrder = 1
     object CloseBtn: TSpeedButton
-      Left = 209
-      Height = 24
+      Left = 207
+      Height = 26
       Hint = 'Close'
-      Top = 2
-      Width = 24
+      Top = 0
+      Width = 26
       Anchors = [akTop, akRight]
       AutoSize = True
       Flat = True
@@ -370,13 +368,13 @@ object TseriesSelectorFrame: TTseriesSelectorFrame
         0000000000000000000000000000000000000000000000000000000000000000
         0000000000000000000000000000000000000000000000000000
       }
-      Images = mainForm.PopupImageList
-      ImageIndex = 28
-      ImageWidth = 20
-      OnClick = CloseBtnClick
+      Images = mainForm.WindowImageList
+      ImageIndex = 1
+      ImageWidth = 16
       ShowCaption = False
       ShowHint = True
       ParentShowHint = False
+      OnClick = CloseBtnClick
     end
   end
 end

@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       groupeditor
- Description:  changes a property for a group of objects located
-               within a designated area of the network
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  a dialog form that changes a property for a group of
+               objects or deletes them
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit groupeditor;
@@ -17,30 +15,31 @@ unit groupeditor;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, lclIntf,
-  ExtCtrls, Math, mapcoords;
+  Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, lclIntf,
+  ExtCtrls, Dialogs, mapcoords;
 
 type
 
   { TGroupEditorForm }
 
   TGroupEditorForm = class(TForm)
-    ActionCombo: TComboBox;
-    CancelBtn: TButton;
-    FilterCheckBox: TCheckBox;
-    FilterParamCombo: TComboBox;
+    Panel1:              TPanel;
+    Panel2:              TPanel;
+    Label1:              TLabel;
+    Label2:              TLabel;
+    InRegionLabel:       TLabel;
+    ParamCombo:          TComboBox;
+    ActionCombo:         TComboBox;
+    FilterCheckBox:      TCheckBox;
+    FilterParamCombo:    TComboBox;
     FilterRelationCombo: TComboBox;
-    FilterValueEdit: TEdit;
-    JunctionsRadioBtn: TRadioButton;
-    Label1: TLabel;
-    Label2: TLabel;
-    InRegionLabel: TLabel;
-    OkBtn: TButton;
-    Panel1: TPanel;
-    Panel2: TPanel;
-    ParamCombo: TComboBox;
-    PipesRadioBtn: TRadioButton;
-    ValueEdit: TEdit;
+    FilterValueEdit:     TEdit;
+    ValueEdit:           TEdit;
+    JunctionsRadioBtn:   TRadioButton;
+    PipesRadioBtn:       TRadioButton;
+    OkBtn:               TButton;
+    CancelBtn:           TButton;
+
     procedure OkBtnClick(Sender: TObject);
     procedure FilterCheckBoxChange(Sender: TObject);
     procedure FilterParamComboChange(Sender: TObject);
@@ -48,20 +47,22 @@ type
     procedure ParamComboChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure JunctionsRadioBtnChange(Sender: TObject);
+
   private
-    ObjType: Integer;
-    FilterParam: Integer;
-    FilterRelation: Integer;
-    FilterValue: Single;
-    FilterTag: String;
-    ChangeAction: Integer;
-    ChangeParam: Integer;
-    ChangeValue: Single;
-    ChangeTag: String;
-    GroupPoly: TPolygon;
-    NumPolyPts: Integer;
-    GroupBounds: TDoubleRect;
-    procedure SetParamChoices(aComboBox: TComboBox; Choices: String);
+    ObjType:         Integer;
+    FilterParam:     Integer;
+    FilterRelation:  Integer;
+    ChangeAction:    Integer;
+    ChangeParam:     Integer;
+    NumPolyPts:      Integer;
+    FilterValue:     Single;
+    FilterTag:       string;
+    ChangeTag:       string;
+    ChangeValue:     Single;
+    GroupPoly:       TPolygon;
+    GroupBounds:     TDoubleRect;
+
+    procedure SetParamChoices(aComboBox: TComboBox; Choices: string);
     function  GoChangeValues: Boolean;
     function  ObjValueChanged(I: Integer): Boolean;
     function  PassesLocationFilter(I: Integer): Boolean;
@@ -72,6 +73,7 @@ type
   public
     HasChanged: Boolean;
     procedure Init(Poly: TPolygon; NumPts: Integer);
+    function  DeleteObjects: Boolean;
 
   end;
 
@@ -83,7 +85,7 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, config, utils, epanet2;
+  main, project, config, utils, reportviewer, epanet2, resourcestrings;
 
 { TGroupEditorForm }
 
@@ -93,32 +95,28 @@ const
   // EN_xxx are EPANET constants defined in the epanet2.pas file
   JuncParamCode: array[0 .. 5] of Integer =
     ( EN_TAG, EN_ELEVATION, EN_BASEDEMAND, EN_PATTERN, EN_EMITTER, EN_INITQUAL);
-  JuncParamsTxt: String =
-    'Tag'#13'Elevation'#13'Base Demand'#13'Demand Pattern'#13+
-    'Emitter Coeff.'#13'Initial Quality';
+  JuncParamsTxt: string = rsJuncParams;
 
   PipeParamCode: array[0..8] of Integer =
     ( EN_TAG, EN_DIAMETER, EN_LENGTH, EN_ROUGHNESS, EN_MINORLOSS,
       EN_KBULK, EN_KWALL, EN_LEAK_AREA, EN_LEAK_EXPAN);
-  PipeParamsTxt: String =
-    'Tag'#13'Diameter'#13'Length'#13'Roughness'#13'Loss Coeff.'#13 +
-    'Bulk Coeff.'#13'Wall Coeff.'#13'Leak Area'#13'Leak Expansion';
+  PipeParamsTxt: string = rsPipeParams;
 
   BELOW = 0;
   EQUAL = 1;
   ABOVE = 2;
-  FilterRelationsTxt: String = 'Below'#13'Equal To'#13'Above';
+  FilterRelationsTxt: string = rsFilters;
 
   REPLACE = 0;
   MULTIPLY = 1;
   ADD = 2;
-  ChangeActionsTxt: String = 'Replace'#13'Multiply'#13'Add To';
+  ChangeActionsTxt: string = rsActions;
 
 procedure TGroupEditorForm.FormCreate(Sender: TObject);
 var
   Location: TPoint;
 begin
-  Color := config.ThemeColor;
+  Color := config.FormColor;
   Font.Size := config.FontSize;
   FilterRelationCombo.Items.Text := FilterRelationsTxt;
   FilterRelationCombo.ItemIndex := EQUAL;
@@ -126,7 +124,7 @@ begin
   ActionCombo.ItemIndex := REPLACE;
   JunctionsRadioBtnChange(Self);
   NumPolyPts := 0;
-  HasChanged := False;
+  HasChanged := false;
 
   Location := MainForm.LeftPanel.ClientOrigin;
   Left := Location.X;
@@ -134,63 +132,47 @@ begin
 end;
 
 procedure TGroupEditorForm.Init(Poly: TPolygon; NumPts: Integer);
-var
-  I: Integer;
-  Bmin, Bmax: TDoublePoint;
 begin
   GroupPoly := Poly;
   NumPolyPts := NumPts;
-
-  // Find bounding rectangle of selection polygon
-  if NumPts > 0 then
-  begin
-    Bmin.X := GroupPoly[0].X;
-    Bmin.Y := GroupPoly[0].Y;
-    Bmax.X := GroupPoly[0].X;
-    Bmax.Y := GroupPoly[0].Y;
-    for I := 1 to NumPts-1 do
-    begin
-      Bmin.X := Math.Min(Bmin.X, GroupPoly[I].X);
-      Bmin.Y := Math.Min(Bmin.Y, GroupPoly[I].Y);
-      Bmax.X := Math.Max(Bmax.X, GroupPoly[I].X);
-      Bmax.Y := Math.Max(Bmax.Y, GroupPoly[I].Y);
-    end;
-    GroupBounds.LowerLeft := Bmin;
-    GroupBounds.UpperRight := Bmax;
-  end;
+  GroupBounds := utils.PolygonBounds(Poly, NumPts);
   InRegionLabel.Visible := (NumPts > 0);
 end;
 
 procedure TGroupEditorForm.OkBtnClick(Sender: TObject);
 begin
-  if JunctionsRadioBtn.Checked then ObjType := cNodes else ObjType := cLinks;
+  if JunctionsRadioBtn.Checked then
+    ObjType := ctNodes
+  else
+    ObjType := ctLinks;
 
   FilterParam := -1;
   if FilterCheckBox.Checked then
   begin
     FilterParam := FilterParamCombo.ItemIndex;
-    if ObjType = cNodes then
+    if ObjType = ctNodes then
       FilterParam := JuncParamCode[FilterParam]
     else
       FilterParam := PipeParamCode[Filterparam];
 
     if FilterParam = EN_TAG then
       FilterTag := FilterValueEdit.Text
-    else if (ObjType = cNodes) and (FilterParam = EN_PATTERN) then
+    else if (ObjType = ctNodes) and (FilterParam = EN_PATTERN) then
     begin
-      FilterValue := project.GetItemIndex(cPatterns, FilterValueEdit.Text);
+      FilterValue := project.GetItemIndex(ctPatterns, FilterValueEdit.Text);
       if FilterValue = 0 then
       begin
-        utils.MsgDlg('Invalid Patten ID', mtError, [mbOk]);
+        utils.MsgDlg(rsInvalidData, rsBadPattern, mtError, [mbOk]);
         FilterValueEdit.SetFocus;
         exit;
       end;
-    end else
+    end
+    else
     begin
       FilterRelation := FilterRelationCombo.ItemIndex;
       if not utils.Str2Float(FilterValueEdit.Text, FilterValue) then
       begin
-        utils.MsgDlg('Invalid number.', mtError, [mbOk]);
+        utils.MsgDlg(rsInvalidData, rsBadNumber, mtError, [mbOk]);
         FilterValueEdit.SetFocus;
         exit;
       end;
@@ -199,16 +181,17 @@ begin
 
   ChangeAction := ActionCombo.ItemIndex;
   ChangeParam := ParamCombo.ItemIndex;
-  if ObjType = cNodes then
+  if ObjType = ctNodes then
     ChangeParam := JuncParamCode[ChangeParam]
   else
     ChangeParam := PipeParamCode[ChangeParam];
-  if (ObjType = cNodes) and (ChangeParam = EN_PATTERN) then
+  if (ObjType = ctNodes)
+  and (ChangeParam = EN_PATTERN) then
   begin
-    ChangeValue := project.GetItemIndex(cPatterns, ValueEdit.Text);
+    ChangeValue := project.GetItemIndex(ctPatterns, ValueEdit.Text);
     if ChangeValue = 0 then
     begin
-      utils.MsgDlg('Invalid Patten ID', mtError, [mbOk]);
+      utils.MsgDlg(rsInvalidData, rsBadPattern, mtError, [mbOk]);
       ValueEdit.SetFocus;
       exit;
     end;
@@ -216,20 +199,20 @@ begin
   else if ChangeParam = EN_TAG then
   begin
     ChangeTag := ValueEdit.Text;
-    if (Pos(' ', ChangeTag) > 0) or (Pos(';', ChangeTag) > 0) then
+    if (Pos(' ', ChangeTag) > 0)
+    or (Pos(';', ChangeTag) > 0) then
     begin
-      utils.MsgDlg('Tags cannot contain spaces or semi-colons', mtError, [mbOk]);
+      utils.MsgDlg(rsInvalidData, rsBadTag, mtError, [mbOk]);
       ValueEdit.SetFocus;
       exit;
     end;
   end
   else if not utils.Str2Float(ValueEdit.Text, ChangeValue) then
   begin
-    utils.MsgDlg('Invalid number.', mtError, [mbOk]);
+    utils.MsgDlg(rsInvalidData, rsBadNumber, mtError, [mbOk]);
     ValueEdit.SetFocus;
     exit;
   end;
-
   if not GoChangeValues then ModalResult := mrOK;
 end;
 
@@ -246,33 +229,35 @@ end;
 
 procedure TGroupEditorForm.FilterParamComboChange(Sender: TObject);
 begin
-  if SameText(FilterParamCombo.Text, 'Tag') or
-     SameText(FilterParamCombo.Text, 'Demand Pattern') then
+  if SameText(FilterParamCombo.Text, 'Tag')
+  or SameText(FilterParamCombo.Text, 'Demand Pattern') then
   begin
     FilterRelationCombo.ItemIndex := 1;
-    FilterRelationCombo.Enabled := False;
-  end else
-    FilterRelationCombo.Enabled := True;
+    FilterRelationCombo.Enabled := false;
+  end
+  else
+    FilterRelationCombo.Enabled := true;
 end;
 
 procedure TGroupEditorForm.ActionComboChange(Sender: TObject);
 begin
   if ActionCombo.ItemIndex = 0 then
-    Label2.Caption := 'with'
+    Label2.Caption := rsWith
   else
-    Label2.Caption := 'by';
+    Label2.Caption := rsBy;
 end;
 
 procedure TGroupEditorForm.ParamComboChange(Sender: TObject);
 begin
-  if SameText(ParamCombo.Text, 'Tag') or
-    SameText(ParamCombo.Text, 'Demand Pattern') then
+  if SameText(ParamCombo.Text, 'Tag')
+  or SameText(ParamCombo.Text, 'Demand Pattern') then
   begin
     ActionCombo.ItemIndex := 0;
-    ActionCombo.Enabled := False;
-    Label2.Caption := 'with';
+    ActionCombo.Enabled := false;
+    Label2.Caption := rsWith;
   end
-  else ActionCombo.Enabled := True;
+  else
+    ActionCombo.Enabled := true;
 end;
 
 procedure TGroupEditorForm.JunctionsRadioBtnChange(Sender: TObject);
@@ -286,14 +271,14 @@ begin
   begin
     SetParamChoices(FilterParamCombo, PipeParamsTxt);
     SetParamChoices(ParamCombo, PipeParamsTxt);
-    FilterRelationCombo.Enabled := True;
-    ActionCombo.Enabled := True;
+    FilterRelationCombo.Enabled := true;
+    ActionCombo.Enabled := true;
   end;
   FilterParamComboChange(self);
   ParamComboChange(self);
 end;
 
-procedure TGroupEditorForm.SetParamChoices(aComboBox: TComboBox; Choices: String);
+procedure TGroupEditorForm.SetParamChoices(aComboBox: TComboBox; Choices: string);
 begin
   with aComboBox do
   begin
@@ -308,13 +293,13 @@ var
   I: Integer;
   N: Integer = 0;
   Count: Integer = 0;
-  Msg: String;
-  Msg1: String = 'No objects match your criteria';
-  Msg2: String = ' object(s) have been modified.';
-  Msg3: String = 'Do you wish to make more edits?';
+  Msg: string;
+  Msg1: string = rsNoMatches;
+  Msg2: string = rsObjsModified;
+  Msg3: string = rsMoreEdits;
 begin
-  Result := True;
-  if ObjType = cNodes then
+  Result := true;
+  if ObjType = ctNodes then
     epanet2.ENgetcount(EN_NODECOUNT, N)
   else
     epanet2.ENgetcount(EN_LINKCOUNT, N);
@@ -323,14 +308,17 @@ begin
     if ObjValueChanged(I) then Inc(Count);
   end;
 
-  if Count = 0 then Msg := Msg1 else
+  if Count = 0 then
+    Msg := Msg1
+  else
   begin
-    Msg := IntToStr(Count) + Msg2;
-    HasChanged := True;
+    MainForm.ProjectFrame.RefreshPropEditor;
+    Msg := IntToStr(Count) + ' ' + Msg2;
+    HasChanged := true;
   end;
-  Msg := Msg + sLineBreak + sLineBreak + Msg3;
-  if utils.MsgDlg(Msg, mtConfirmation, [mbYes, mbNo]) = mrNo then
-    Result := False;
+  Msg := Msg + LineEnding + LineEnding + Msg3;
+  if utils.MsgDlg(rsPleaseConfirm, Msg, mtConfirmation, [mbYes, mbNo]) = mrNo then
+    Result := false;
 end;
 
 function TGroupEditorForm.ObjValueChanged(I: Integer): Boolean;
@@ -339,32 +327,41 @@ var
   LinkType: Integer = 0;
   X: Single;
 begin
-  Result := False;
-  if ObjType = cNodes then
+  Result := false;
+  if ObjType = ctNodes then
   begin
     epanet2.ENgetnodetype(I, NodeType);
     if NodeType <> EN_JUNCTION then exit;
-  end else
+  end
+  else
   begin
     epanet2.ENgetlinktype(I, LinkType);
     if LinkType <> EN_PIPE then exit;
   end;
 
-  if (NumPolyPts > 0) and (not PassesLocationFilter(I)) then exit;
-
-  if (FilterParam = EN_TAG) and (not PassesTextFilter(I)) then exit
-  else if (FilterParam >= 0) and (not PassesNumericalFilter(I)) then exit;
+  if (NumPolyPts > 0)
+  and (not PassesLocationFilter(I)) then exit;
+  if (FilterParam = EN_TAG)
+  and (not PassesTextFilter(I)) then exit
+  else if (FilterParam >= 0)
+  and (not PassesNumericalFilter(I)) then exit;
 
   if ChangeParam = EN_TAG then
-    epanet2.ENsettag(ObjType, I, PChar(ChangeTag))
-  else begin
+  begin
+    if ObjType = ctNodes then
+      epanet2.ENsettag(EN_NODE, I, PChar(ChangeTag))
+    else
+      epanet2.ENsettag(EN_LINK, I, PChar(ChangeTag));
+  end
+  else
+  begin
     X := GetNewValue(I);
-    if ObjType = cNodes then
+    if ObjType = ctNodes then
       epanet2.ENsetnodevalue(I, ChangeParam, X)
-    else if ObjType = cLinks then
+    else if ObjType = ctLinks then
       epanet2.ENsetlinkvalue(I, ChangeParam, X);
   end;
-  Result := True;
+  Result := true;
 end;
 
 function TGroupEditorForm.PassesLocationFilter(I: Integer): Boolean;
@@ -373,13 +370,18 @@ var
   N2: Integer = 0;
   Pt: TDoublePoint;
 begin
-  Result := False;
-  if ObjType = cNodes then
+  Result := false;
+  if ObjType = ctNodes then
   begin
     if not project.GetNodeCoord(I, Pt.X, Pt.Y) then exit;
     if not utils.PointInPolygon(Pt, GroupBounds, NumPolyPts, GroupPoly) then exit;
   end
-  else if ObjType = cLinks then
+  else if ObjType = ctLabels then
+  begin
+    if not project.GetLabelCoord(I, Pt.X, Pt.Y) then exit;
+    if not utils.PointInPolygon(Pt, GroupBounds, NumPolyPts, GroupPoly) then exit;
+  end
+  else if ObjType = ctLinks then
   begin
     if not project.GetLinkNodes(I, N1, N2) then exit;
     if not project.GetNodeCoord(N1, Pt.X, Pt.Y) then exit;
@@ -387,35 +389,34 @@ begin
     if not project.GetNodeCoord(N2, Pt.X, Pt.Y) then exit;
     if not utils.PointInPolygon(Pt, GroupBounds, NumPolyPts, GroupPoly) then exit;
   end;
-  Result := True;
+  Result := true;
 end;
 
 function TGroupEditorForm.PassesTextFilter(I: Integer): Boolean;
 var
-  R : Integer;
+  S: string;
 begin
-  R := CompareStr(project.GetTag(ObjType, I), FilterTag);
-  case FilterRelation of
-  BELOW: Result := (R < 0);
-  EQUAL: Result := (R = 0);
-  ABOVE: Result := (R > 0);
-  else Result := False;
-  end;
+  S := project.GetTag(ObjType, I);
+  Result := (AnsiCompareStr(S, FilterTag) = 0);
 end;
 
 function TGroupEditorForm.PassesNumericalFilter(I: Integer): Boolean;
 var
   X: Single;
 begin
-  if ObjType = cNodes then
+  if ObjType = ctNodes then
     epanet2.ENgetnodevalue(I, FilterParam, X)
   else
     epanet2.ENgetlinkvalue(I, FilterParam, X);
   case FilterRelation of
-  BELOW: Result := (X <= FilterValue);
-  EQUAL: Result := (Abs(X - FilterValue) < 0.0001);
-  ABOVE: Result := (X >= FilterValue);
-  else Result := False;
+    BELOW:
+      Result := (X <= FilterValue);
+    EQUAL:
+      Result := (Abs(X - FilterValue) < 0.0001);
+    ABOVE:
+      Result := (X >= FilterValue);
+    else
+      Result := false;
   end;
 end;
 
@@ -425,8 +426,9 @@ var
 begin
   if ChangeAction = REPLACE then
     Result := ChangeValue
-  else begin
-    if ObjType = cNodes then
+  else
+  begin
+    if ObjType = ctNodes then
       epanet2.ENgetnodevalue(Index, ChangeParam, X)
     else
       epanet2.ENgetlinkvalue(Index, ChangeParam, X);
@@ -437,6 +439,49 @@ begin
     else
       Result := ChangeValue;
   end;
+end;
+
+function TGroupEditorForm.DeleteObjects: Boolean;
+var
+  I: Integer;
+  N: Integer;
+begin
+  // Confirm deletion
+  Result := false;
+  if utils.MsgDlg(rsPleaseConfirm, rsDeleteAll, mtConfirmation,
+    [mbYes, mbNo]) = mrNo then exit;
+
+  // Delete nodes (which will also delete connecting links)
+  ObjType := ctNodes;
+  N := project.GetItemCount(ctNodes);
+  for I := N downto 1 do
+  begin
+    if (NumPolyPts > 0)
+    and (not PassesLocationFilter(I)) then continue;
+    project.DeleteItem(ctNodes, I);
+    Result := true;
+  end;
+
+  // Delete labels
+  ObjType := ctLabels;
+  N := project.GetItemCount(ctLabels);
+  for I := N downto 1 do
+  begin
+    if (NumPolyPts > 0)
+    and (not PassesLocationFilter(I)) then continue;
+    project.DeleteItem(ctLabels, I);
+    Result := true;
+  end;
+
+  // Adjust the network map's extent
+  if Result then
+  begin
+    MainForm.MapFrame.Map.Extent := MapCoords.GetBounds(MainForm.MapFrame.GetExtent);
+    MainForm.OverviewMapFrame.Redraw;
+  end;
+
+  // Update any report affected by deletions
+  ReportViewerForm.UpdateReport;
 end;
 
 end.

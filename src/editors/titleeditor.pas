@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       titleeditor
  Description:  a dialog form that edits a project's title
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit titleeditor;
@@ -56,8 +54,11 @@ uses
 
 procedure TTitleEditorForm.FormCreate(Sender: TObject);
 begin
-  Color := config.ThemeColor;
+  Color := config.FormColor;
   Font.Size := config.FontSize;
+  Edit1.Font.Size := Font.Size;
+  Edit2.Font.Size := Font.Size;
+  Edit3.Font.Size := Font.Size;
 end;
 
 procedure TTitleEditorForm.FormShow(Sender: TObject);
@@ -71,13 +72,13 @@ begin
       Text := project.GetTitle(I-1);
     end;
   end;
-  HasChanged := False;
+  HasChanged := false;
 end;
 
 procedure TTitleEditorForm.Button1Click(Sender: TObject);
 var
   I: Integer;
-  Lines: array[1..3] of String;
+  Lines: array[1..3] of string;
 begin
   for I := 1 to 3 do
   begin
@@ -91,7 +92,7 @@ end;
 
 procedure TTitleEditorForm.Edit1Change(Sender: TObject);
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 end.

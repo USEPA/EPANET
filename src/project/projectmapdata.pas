@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       projectmapdata
  Description:  reads/writes map data to/from an EPANET input file
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit projectmapdata;
@@ -27,7 +25,7 @@ procedure SaveMapData(Fname: string);
 implementation
 
 uses
-  main, project, utils, mapframe, mapthemes, maplabel, mapcoords;
+  main, project, mapframe, mapthemes, maplabel, mapcoords;
 
 const
   Labels = 1;
@@ -37,7 +35,7 @@ const
     ('DIMENSIONS', 'UNITS', 'FILE', 'OFFSET');
 
 var
-  BackdropFileName: String;
+  BackdropFileName: string;
 
 procedure ReadLabelData(S: string; Tokens: TStringList);
 var
@@ -57,7 +55,7 @@ begin
   MapLabel.X := X;
   MapLabel.Y := Y;
   project.MapLabels.AddObject(Tokens[2], Maplabel);
-  if (Tokens.Count >= 4) and (project.GetItemIndex(cNodes, Tokens[3]) > 0) then
+  if (Tokens.Count >= 4) and (project.GetItemIndex(ctNodes, Tokens[3]) > 0) then
     MapLabel.AnchorNode := Tokens[3];
   if (Tokens.Count >= 5) then MapLabel.Font.Name := Tokens[4];
   if (Tokens.Count >= 6) then
@@ -65,13 +63,15 @@ begin
     I := StrToIntDef(Tokens[5], 0);
     if I > 0 then MapLabel.Font.Size := I;
   end;
-  if (Tokens.Count >= 7) and SameText(Tokens[6], 'YES') then
+  if (Tokens.Count >= 7)
+  and SameText(Tokens[6], 'YES') then
     with Maplabel.Font do Style := Style + [fsBold];
-  if (Tokens.Count >= 8) and SameText(Tokens[7], 'YES') then
+  if (Tokens.Count >= 8)
+  and SameText(Tokens[7], 'YES') then
     with Maplabel.Font do Style := Style + [fsItalic];
 end;
 
-procedure ReadUnits(S: String);
+procedure ReadUnits(S: string);
 begin
   project.MapUnits := AnsiIndexText(S, project.MapUnitsStr);
   if project.MapUnits < 0 then project.MapUnits := project.muNone;
@@ -87,7 +87,6 @@ begin
     if Tokens.Count > 2 then
     begin
       project.MapEPSG:= StrToIntDef(Tokens[2], 0);
-      project.OldMapEPSG := project.MapEPSG;
     end;
   end
   else if SameText(Tokens[0], Keywords[2]) then
@@ -96,7 +95,7 @@ end;
 
 procedure WriteBackdropData(Lines: TStringList);
 var
-  S: String;
+  S: string;
 begin
   Lines.Add('');
   Lines.Add('[BACKDROP]');
@@ -131,12 +130,18 @@ begin
       MapLabel := TMapLabel(project.MapLabels.Objects[I]);
       LabelText := '"' + project.MapLabels[I] + '"';
       FontName := '"' + MapLabel.Font.Name + '"';
-      if Length(MapLabel.AnchorNode) = 0 then Anchor := '""'
-      else Anchor := MapLabel.AnchorNode;
-      if fsBold in MapLabel.Font.Style then FontBold := 'YES'
-      else FontBold := 'NO';
-      if fsItalic in MapLabel.Font.Style then FontItalic := 'YES'
-      else FontItalic := 'NO';
+      if Length(MapLabel.AnchorNode) = 0 then
+        Anchor := '""'
+      else
+        Anchor := MapLabel.AnchorNode;
+      if fsBold in MapLabel.Font.Style then
+        FontBold := 'YES'
+      else
+        FontBold := 'NO';
+      if fsItalic in MapLabel.Font.Style then
+        FontItalic := 'YES'
+      else
+        FontItalic := 'NO';
       Lines.Add(Format('%14.6f  %14.6f  %s  %s  %s  %d  %s  %s',
         [MapLabel.X, MapLabel.Y, LabelText, Anchor, FontName, MapLabel.Font.Size,
          FontBold, FontItalic]));
@@ -163,7 +168,6 @@ var
   InpFile: TextFile;
   S: string;
   Section: Integer;
-  I: Integer;
 begin
   MapUnits := 0;
   BackdropFilename := '';
@@ -182,17 +186,26 @@ begin
       if AnsiStartsText(';', S) then continue;
       if AnsiStartsText('[', S) then
       begin
-        if AnsiStartsText('[LABEL', S) then Section := Labels
-        else if AnsiStartsText('[BACKDROP', S) then Section := Backdrop
-        else Section := 0;
+        if AnsiStartsText('[LABEL', S) then
+          Section := Labels
+        else
+        begin
+          if AnsiStartsText('[BACKDROP', S) then
+            Section := Backdrop
+          else
+            Section := 0;
+        end;
       end
-      else if Section = Labels then ReadLabelData(S, Tokens)
-      else if Section = Backdrop then ReadBackdropData(S, Tokens);
+      else if Section = Labels then
+        ReadLabelData(S, Tokens)
+      else if Section = Backdrop then
+        ReadBackdropData(S, Tokens);
     end;
   finally
     CloseFile(InpFile);
     Tokens.Free;
   end;
+  if project.MapEPSG = 4326 then MapUnits := muDegrees;
   project.MapUnits := MapUnits;
   if Length(BackdropFilename) > 0 then AssignBasemapFile;
 end;
@@ -215,12 +228,14 @@ begin
         Readln(InpFile, aLine);
         if AnsiStartsText('[', aLine) then
         begin
-          if AnsiStartsText('[END', aLine) then continue
+          if AnsiStartsText('[END', aLine) then
+            continue
           else if AnsiStartsText('[LABEL', aLine) then
             Section := Labels
           else if AnsiStartsText('[BACK', aLine) then
             Section := Backdrop
-          else Section := 0;
+          else
+            Section := 0;
         end;
         if Section = 0 then Lines.Add(aLine);
       end;

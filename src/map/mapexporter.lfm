@@ -5,9 +5,7 @@ object MapExporterFrame: TMapExporterFrame
   Width = 198
   ClientHeight = 216
   ClientWidth = 198
-  Color = clCream
-  ParentBackground = False
-  ParentColor = False
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
   DesignLeft = 1649
   DesignTop = 26
@@ -15,7 +13,7 @@ object MapExporterFrame: TMapExporterFrame
     Left = 16
     Height = 15
     Top = 36
-    Width = 78
+    Width = 77
     Caption = 'Export map to:'
   end
   object ToClipbrdRB: TRadioButton
@@ -53,18 +51,15 @@ object MapExporterFrame: TMapExporterFrame
     Caption = 'Map Exporter'
     ClientHeight = 28
     ClientWidth = 198
-    Color = 16316664
     Font.Style = [fsBold]
-    ParentBackground = False
-    ParentColor = False
     ParentFont = False
     TabOrder = 3
     object CloseBtn: TSpeedButton
-      Left = 174
-      Height = 20
+      Left = 168
+      Height = 26
       Hint = 'Close'
       Top = 2
-      Width = 20
+      Width = 26
       Anchors = [akTop, akRight]
       AutoSize = True
       Flat = True
@@ -125,10 +120,10 @@ object MapExporterFrame: TMapExporterFrame
       Images = mainForm.WindowImageList
       ImageIndex = 1
       ImageWidth = 16
-      OnClick = CloseBtnClick
       ShowCaption = False
       ShowHint = True
       ParentShowHint = False
+      OnClick = CloseBtnClick
     end
   end
   object ExportBtn: TBitBtn
@@ -142,7 +137,7 @@ object MapExporterFrame: TMapExporterFrame
     Images = mainForm.WindowImageList
     ImageIndex = 5
     ImageWidth = 24
-    OnClick = ExportBtnClick
     TabOrder = 4
+    OnClick = ExportBtnClick
   end
 end

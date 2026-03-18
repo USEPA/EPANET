@@ -1,106 +1,91 @@
 object ShpImporterForm: TShpImporterForm
-  Left = 1426
-  Height = 484
-  Top = 168
+  Left = 1418
+  Height = 515
+  Top = 10
   Width = 460
   BorderStyle = bsDialog
   Caption = 'Shapefile Importer'
-  ClientHeight = 484
+  ClientHeight = 515
   ClientWidth = 460
   Font.CharSet = ANSI_CHARSET
-  Font.Pitch = fpVariable
-  Font.Quality = fqDraft
+  Position = poMainFormCenter
+  LCLVersion = '4.4.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
-  Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
   object BtnPanel: TPanel
     Left = 0
     Height = 61
-    Top = 423
+    Top = 454
     Width = 460
     Align = alBottom
     BevelOuter = bvNone
     BorderStyle = bsSingle
-    ClientHeight = 57
-    ClientWidth = 456
+    ClientHeight = 61
+    ClientWidth = 460
     TabOrder = 0
-    object BackBtn: TBitBtn
-      Left = 186
-      Height = 30
-      Top = 16
-      Width = 75
-      Caption = 'Back'
-      GlyphShowMode = gsmAlways
-      ImageIndex = 9
-      OnClick = BackBtnClick
-      TabOrder = 0
-    end
-    object NextBtn: TBitBtn
-      Left = 274
-      Height = 30
-      Top = 16
-      Width = 75
-      Caption = 'Next'
-      GlyphShowMode = gsmAlways
-      Layout = blGlyphRight
-      ImageIndex = 10
-      OnClick = NextBtnClick
-      TabOrder = 1
-    end
-    object CancelBtn: TBitBtn
-      Left = 362
-      Height = 30
-      Top = 16
-      Width = 75
-      Cancel = True
-      Caption = 'Cancel'
-      GlyphShowMode = gsmAlways
-      ModalResult = 2
-      ImageIndex = 11
-      OnClick = CancelBtnClick
-      TabOrder = 2
-    end
-    object ImportBtn: TBitBtn
+    object ImportBtn: TButton
       Left = 96
-      Height = 30
-      Top = 16
+      Height = 25
+      Top = 20
       Width = 75
       Caption = 'Import'
-      GlyphShowMode = gsmAlways
-      ImageIndex = 14
+      TabOrder = 0
       OnClick = ImportBtnClick
+    end
+    object BackBtn: TButton
+      Left = 186
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Back'
+      TabOrder = 1
+      OnClick = BackBtnClick
+    end
+    object NextBtn: TButton
+      Left = 274
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Next'
+      TabOrder = 2
+      OnClick = NextBtnClick
+    end
+    object CancelBtn: TButton
+      Left = 362
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Cancel'
       TabOrder = 3
-      Visible = False
+      OnClick = CancelBtnClick
     end
   end
   object Notebook1: TNotebook
     Left = 0
-    Height = 423
+    Height = 454
     Top = 0
     Width = 460
-    PageIndex = 1
+    PageIndex = 0
     Align = alClient
     TabOrder = 1
     object Page1: TPage
       object Panel2: TPanel
         Left = 0
-        Height = 423
+        Height = 454
         Top = 0
         Width = 170
         Align = alLeft
         BevelOuter = bvNone
         BorderStyle = bsSingle
         Caption = 'Panel2'
-        ClientHeight = 419
-        ClientWidth = 166
-        ParentBackground = False
+        ClientHeight = 454
+        ClientWidth = 170
         TabOrder = 0
         object Image1: TImage
           Left = 0
-          Height = 419
+          Height = 452
           Top = 0
-          Width = 166
+          Width = 168
           Align = alClient
           Center = True
           Picture.Data = {
@@ -7383,14 +7368,12 @@ object ShpImporterForm: TShpImporterForm
       end
       object Label1: TLabel
         Left = 192
-        Height = 32
+        Height = 34
         Top = 36
-        Width = 214
+        Width = 227
         Caption = 'Shapefile Importer'
         Font.CharSet = ANSI_CHARSET
         Font.Height = -24
-        Font.Pitch = fpVariable
-        Font.Quality = fqDraft
         Font.Style = [fsBold, fsUnderline]
         ParentColor = False
         ParentFont = False
@@ -7409,7 +7392,7 @@ object ShpImporterForm: TShpImporterForm
     object Page2: TPage
       object PageControl1: TPageControl
         Left = 0
-        Height = 423
+        Height = 454
         Top = 0
         Width = 460
         ActivePage = LinksTabSheet
@@ -7419,225 +7402,176 @@ object ShpImporterForm: TShpImporterForm
         OnChange = PageControl1Change
         object LinksTabSheet: TTabSheet
           Caption = '  Links  '
-          ClientHeight = 395
-          ClientWidth = 452
+          ClientHeight = 422
+          ClientWidth = 456
           object Panel3: TPanel
             Left = 0
-            Height = 69
+            Height = 86
             Top = 0
-            Width = 452
+            Width = 456
             Align = alTop
-            AutoSize = True
-            BevelOuter = bvNone
-            BorderStyle = bsSingle
-            ClientHeight = 65
-            ClientWidth = 448
+            Alignment = taLeftJustify
             Color = 14745599
             ParentBackground = False
             ParentColor = False
             TabOrder = 0
-            object Label3: TLabel
-              Left = 8
-              Height = 45
-              Top = 12
-              Width = 432
-              Align = alClient
-              BorderSpacing.Top = 4
-              BorderSpacing.Around = 8
-              Caption = 'Select a shapefile containing georeferenced link data and assign its attributes to their corresponding EPANET link properties. Properties with no assigned attribute will have default values.'
-              ParentColor = False
-              WordWrap = True
-            end
+            Wordwrap = True
           end
           object Panel4: TPanel
             Left = 0
-            Height = 326
+            Height = 336
             Hint = 'Open File'
-            Top = 69
-            Width = 452
+            Top = 86
+            Width = 456
             Align = alClient
             BevelOuter = bvNone
-            ClientHeight = 326
-            ClientWidth = 452
-            ParentBackground = False
+            ClientHeight = 336
+            ClientWidth = 456
             ParentShowHint = False
             ShowHint = True
             TabOrder = 1
             object Label4: TLabel
               Left = 16
-              Height = 15
-              Top = 20
-              Width = 51
+              Height = 18
+              Top = 24
+              Width = 59
               Caption = 'Links File:'
               ParentColor = False
             end
             object LinksFileEdit: TEdit
               Left = 104
-              Height = 23
-              Top = 12
+              Height = 26
+              Top = 16
               Width = 250
               ReadOnly = True
               TabStop = False
               TabOrder = 0
             end
-            object Panel6: TPanel
-              Left = 16
-              Height = 224
-              Top = 47
-              Width = 418
-              AutoSize = True
-              BevelOuter = bvNone
-              BorderStyle = bsSingle
-              ClientHeight = 220
-              ClientWidth = 414
-              ParentBackground = False
-              TabOrder = 3
-              object LinksDataGrid: TStringGrid
-                Left = 0
-                Height = 220
-                Top = 0
-                Width = 414
-                AutoFillColumns = True
-                BorderStyle = bsNone
-                ColCount = 3
-                Columns = <                
-                  item
-                    ButtonStyle = cbsPickList
-                    Title.Alignment = taCenter
-                    Title.Caption = 'Shapefile Attribute'
-                    Width = 142
-                  end                
-                  item
-                    ButtonStyle = cbsPickList
-                    PickList.Strings = (
-                      ''
-                      'feet'
-                      'meters'
-                      'inches'
-                      'millimeters'
-                    )
-                    Title.Alignment = taCenter
-                    Title.Caption = 'Units'
-                    Width = 142
-                  end>
-                DefaultColWidth = 130
-                Flat = True
-                Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goEditing, goAlwaysShowEditor, goSmoothScroll]
-                RowCount = 10
-                TabOrder = 0
-                ColWidths = (
-                  130
-                  142
-                  142
-                )
-              end
-            end
             object LinksFileBtn: TBitBtn
               Left = 357
               Height = 30
               Hint = 'Open a shapefile with Link data'
-              Top = 8
+              Top = 12
               Width = 36
               GlyphShowMode = gsmAlways
               Layout = blGlyphBottom
               Images = mainForm.WindowImageList
               ImageIndex = 14
               ImageWidth = 20
-              OnClick = FileBtnClick
               ParentShowHint = False
               ShowHint = True
               TabOrder = 1
+              OnClick = FileBtnClick
             end
             object ClearLinksBtn: TBitBtn
               Left = 396
               Height = 30
               Hint = 'Clear the choice of shapefile'
-              Top = 8
+              Top = 12
               Width = 36
               GlyphShowMode = gsmAlways
               Layout = blGlyphBottom
               Images = mainForm.WindowImageList
               ImageIndex = 1
               ImageWidth = 20
-              OnClick = ClearLinksBtnClick
               ParentShowHint = False
               ShowHint = True
               TabOrder = 2
+              OnClick = ClearLinksBtnClick
             end
             object ViewLinkAttribLabel: TLabel
               Cursor = crHandPoint
               Left = 318
-              Height = 17
-              Top = 290
-              Width = 116
+              Height = 18
+              Top = 310
+              Width = 122
               Caption = 'View Attribute Table'
               Font.CharSet = ANSI_CHARSET
               Font.Color = clBlue
-              Font.Height = -13
-              Font.Pitch = fpVariable
-              Font.Quality = fqDraft
               Font.Style = [fsUnderline]
               ParentFont = False
               Visible = False
               OnClick = ViewLinkAttribLabelClick
             end
+            object LinksDataGrid: TStringGrid
+              Left = 16
+              Height = 243
+              Top = 55
+              Width = 414
+              AutoFillColumns = True
+              ColCount = 3
+              Columns = <              
+                item
+                  ButtonStyle = cbsPickList
+                  Title.Alignment = taCenter
+                  Title.Caption = 'Shapefile Attribute'
+                  Width = 142
+                end              
+                item
+                  ButtonStyle = cbsPickList
+                  PickList.Strings = (
+                    ''
+                    'feet'
+                    'meters'
+                    'inches'
+                    'millimeters'
+                  )
+                  Title.Alignment = taCenter
+                  Title.Caption = 'Units'
+                  Width = 141
+                end>
+              DefaultColWidth = 130
+              Flat = True
+              Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goEditing, goAlwaysShowEditor, goSmoothScroll]
+              RowCount = 10
+              TabOrder = 3
+              ColWidths = (
+                130
+                142
+                141
+              )
+            end
           end
         end
         object NodesTabSheet: TTabSheet
           Caption = '  Nodes  '
-          ClientHeight = 395
-          ClientWidth = 452
-          object Panel5: TPanel
+          ClientHeight = 422
+          ClientWidth = 456
+          object Panel6: TPanel
             Left = 0
-            Height = 69
+            Height = 86
             Top = 0
-            Width = 452
+            Width = 456
             Align = alTop
-            AutoSize = True
-            BevelOuter = bvNone
-            BorderStyle = bsSingle
-            ClientHeight = 65
-            ClientWidth = 448
+            Alignment = taLeftJustify
             Color = 14745599
             ParentBackground = False
             ParentColor = False
             TabOrder = 0
-            object Label5: TLabel
-              Left = 8
-              Height = 45
-              Top = 12
-              Width = 432
-              Align = alClient
-              BorderSpacing.Top = 4
-              BorderSpacing.Around = 8
-              Caption = 'Select a shapefile containing georeferenced node data and assign its attributes to their corresponding EPANET node properties. Properties with no assigned attribute will have default values. Skip this page if no node data will be imported.'
-              ParentColor = False
-              WordWrap = True
-            end
+            Wordwrap = True
           end
           object Panel7: TPanel
             Left = 0
-            Height = 326
-            Top = 69
-            Width = 452
+            Height = 336
+            Top = 86
+            Width = 456
             Align = alClient
             BevelOuter = bvNone
-            ClientHeight = 326
-            ClientWidth = 452
-            ParentBackground = False
+            ClientHeight = 336
+            ClientWidth = 456
             TabOrder = 1
             object Label6: TLabel
               Left = 16
-              Height = 15
-              Top = 20
-              Width = 58
+              Height = 18
+              Top = 24
+              Width = 67
               Caption = 'Nodes File:'
               ParentColor = False
             end
             object NodesFileEdit: TEdit
               Left = 104
-              Height = 23
-              Top = 12
+              Height = 26
+              Top = 16
               Width = 250
               ReadOnly = True
               TabStop = False
@@ -7647,38 +7581,52 @@ object ShpImporterForm: TShpImporterForm
               Left = 357
               Height = 30
               Hint = 'Open a shapefile with Node data'
-              Top = 8
+              Top = 12
               Width = 36
               GlyphShowMode = gsmAlways
               Layout = blGlyphBottom
               Images = mainForm.WindowImageList
               ImageIndex = 14
               ImageWidth = 20
-              OnClick = FileBtnClick
               ParentShowHint = False
               ShowHint = True
               TabOrder = 1
+              OnClick = FileBtnClick
             end
             object ClearNodesBtn: TBitBtn
               Left = 396
               Height = 30
               Hint = 'Clear the choice of shapefile'
-              Top = 8
+              Top = 12
               Width = 36
               GlyphShowMode = gsmAlways
               Layout = blGlyphBottom
               Images = mainForm.WindowImageList
               ImageIndex = 1
               ImageWidth = 20
-              OnClick = ClearNodesBtnClick
               ParentShowHint = False
               ShowHint = True
               TabOrder = 2
+              OnClick = ClearNodesBtnClick
+            end
+            object ViewNodeAttribLabel: TLabel
+              Cursor = crHandPoint
+              Left = 318
+              Height = 18
+              Top = 290
+              Width = 122
+              Caption = 'View Attribute Table'
+              Font.CharSet = ANSI_CHARSET
+              Font.Color = clBlue
+              Font.Style = [fsUnderline]
+              ParentFont = False
+              Visible = False
+              OnClick = ViewNodeAttribLabelClick
             end
             object NodesDataGrid: TStringGrid
               Left = 16
-              Height = 158
-              Top = 47
+              Height = 172
+              Top = 56
               Width = 420
               AutoFillColumns = True
               ColCount = 3
@@ -7722,99 +7670,56 @@ object ShpImporterForm: TShpImporterForm
                 134
               )
             end
-            object ViewNodeAttribLabel: TLabel
-              Cursor = crHandPoint
-              Left = 318
-              Height = 17
-              Top = 290
-              Width = 116
-              Caption = 'View Attribute Table'
-              Font.CharSet = ANSI_CHARSET
-              Font.Color = clBlue
-              Font.Height = -13
-              Font.Pitch = fpVariable
-              Font.Quality = fqDraft
-              Font.Style = [fsUnderline]
-              ParentFont = False
-              Visible = False
-              OnClick = ViewLinkAttribLabelClick
-            end
           end
         end
         object OptionsTabSheet: TTabSheet
           Caption = '  Options  '
-          ClientHeight = 395
-          ClientWidth = 452
+          ClientHeight = 422
+          ClientWidth = 456
           object Panel9: TPanel
             Left = 0
-            Height = 48
-            Top = 0
-            Width = 452
-            Align = alTop
-            BevelOuter = bvNone
-            ClientHeight = 48
-            ClientWidth = 452
-            ParentBackground = False
-            TabOrder = 0
-            object Label7: TLabel
-              Left = 8
-              Height = 24
-              Top = 16
-              Width = 436
-              Align = alClient
-              Alignment = taCenter
-              BorderSpacing.Top = 8
-              BorderSpacing.Around = 8
-              Caption = 'Provide values for the import options listed below:'
-              ParentColor = False
-              WordWrap = True
-            end
-          end
-          object Panel10: TPanel
-            Left = 0
             Height = 347
-            Top = 48
-            Width = 452
-            Align = alClient
+            Top = 75
+            Width = 456
+            Align = alBottom
             BevelOuter = bvNone
             ClientHeight = 347
-            ClientWidth = 452
-            ParentBackground = False
-            TabOrder = 1
+            ClientWidth = 456
+            TabOrder = 0
             object Label13: TLabel
               Left = 93
-              Height = 15
-              Top = 7
-              Width = 82
-              Caption = 'EPSG CRS Code'
+              Height = 36
+              Top = 0
+              Width = 94
+              Caption = 'EPSG CRS Code'#13#10'(if known)'
             end
             object EpsgEdit: TEdit
               Left = 242
-              Height = 23
+              Height = 26
               Top = 2
               Width = 105
               TabOrder = 0
             end
             object Label14: TLabel
               Left = 93
-              Height = 15
+              Height = 18
               Top = 47
-              Width = 89
+              Width = 103
               Caption = 'Coordinate Units'
               ParentColor = False
             end
             object UnitsCombo: TComboBox
               Left = 242
-              Height = 25
+              Height = 26
               Top = 43
               Width = 105
               ItemHeight = 19
-              ItemIndex = 0
+              ItemIndex = 3
               Items.Strings = (
-                'Unknown'
                 'Feet'
                 'Meters'
                 'Degrees'
+                'Unknown'
               )
               Style = csOwnerDrawFixed
               TabOrder = 1
@@ -7822,27 +7727,28 @@ object ShpImporterForm: TShpImporterForm
             end
             object Label17: TLabel
               Left = 93
-              Height = 15
+              Height = 18
               Top = 121
-              Width = 111
+              Width = 130
               Caption = 'Node Snap Tolerance'
               ParentColor = False
             end
             object SnapTolEdit: TFloatSpinEditEx
               Left = 242
-              Height = 23
+              Height = 26
               Top = 117
               Width = 105
               MaxLength = 0
+              SpinButtonWidth = 17
               TabOrder = 2
               MaxValue = 100
               UpDownVisible = False
             end
             object Label19: TLabel
               Left = 93
-              Height = 15
+              Height = 18
               Top = 172
-              Width = 234
+              Width = 271
               Caption = 'Nodes within snap tolerance will be merged.'
               ParentColor = False
             end
@@ -7903,97 +7809,93 @@ object ShpImporterForm: TShpImporterForm
             end
             object ComputeLengthsCB: TCheckBox
               Left = 93
-              Height = 19
+              Height = 24
               Top = 247
-              Width = 150
+              Width = 178
               Caption = 'Recompute Pipe Lengths'
               TabOrder = 5
             end
             object FeetRB: TRadioButton
               Left = 93
-              Height = 19
+              Height = 24
               Top = 143
-              Width = 40
+              Width = 52
               Caption = 'Feet'
               TabOrder = 3
             end
             object MetersRB: TRadioButton
               Left = 152
-              Height = 19
+              Height = 24
               Top = 143
-              Width = 54
+              Width = 68
               Caption = 'Meters'
               Checked = True
               TabOrder = 4
               TabStop = True
             end
-            object AddToProjectCB: TCheckBox
-              Left = 93
-              Height = 19
-              Top = 280
-              Width = 138
-              Caption = 'Add to Existing Project'
-              TabOrder = 6
-            end
             object PrjFileLabel: TLabel
               Cursor = crHandPoint
               Left = 93
-              Height = 17
+              Height = 18
               Top = 84
-              Width = 223
+              Width = 229
               Caption = 'Read CRS code and units from .prj file'
               Font.CharSet = ANSI_CHARSET
               Font.Color = clBlue
-              Font.Height = -13
-              Font.Pitch = fpVariable
-              Font.Quality = fqDraft
               Font.Style = [fsUnderline]
               ParentColor = False
               ParentFont = False
               OnClick = PrjFileLabelClick
             end
           end
+          object Panel1: TPanel
+            Left = 0
+            Height = 75
+            Top = 0
+            Width = 456
+            Align = alClient
+            BevelOuter = bvNone
+            ClientHeight = 75
+            ClientWidth = 456
+            TabOrder = 1
+            object Label7: TLabel
+              Left = 93
+              Height = 18
+              Top = 41
+              Width = 307
+              Alignment = taCenter
+              BorderSpacing.Top = 8
+              BorderSpacing.Around = 8
+              Caption = 'Provide values for the import options listed below:'
+              WordWrap = True
+            end
+          end
         end
-        object TabSheet4: TTabSheet
+        object PreviewTabSheet: TTabSheet
           Caption = '  Preview  '
-          ClientHeight = 395
-          ClientWidth = 452
+          ClientHeight = 422
+          ClientWidth = 456
           TabVisible = False
           object PaintBox1: TPaintBox
             Left = 0
-            Height = 341
-            Top = 54
-            Width = 452
+            Height = 358
+            Top = 64
+            Width = 456
             Align = alClient
             OnPaint = PaintBox1Paint
           end
-          object Panel11: TPanel
+          object Panel10: TPanel
             Left = 0
-            Height = 54
+            Height = 64
             Top = 0
-            Width = 452
+            Width = 456
             Align = alTop
-            AutoSize = True
-            BevelOuter = bvNone
-            BorderStyle = bsSingle
-            ClientHeight = 50
-            ClientWidth = 448
+            Alignment = taLeftJustify
             Color = 14745599
             ParentBackground = False
             ParentColor = False
             TabOrder = 0
-            object Label15: TLabel
-              Left = 8
-              Height = 30
-              Top = 12
-              Width = 432
-              Align = alClient
-              BorderSpacing.Top = 4
-              BorderSpacing.Around = 8
-              Caption = 'A preview of the imported network layout is displayed below. Click the Import button to begin importing data from the selected shapefiles into the project.'
-              ParentColor = False
-              WordWrap = True
-            end
+            Wordwrap = True
           end
         end
       end

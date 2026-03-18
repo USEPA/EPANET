@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       webmapserver
  Description:  a component that retrieves street map images
                from an internet map tile service
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/26/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit webmapserver;
@@ -20,7 +18,7 @@ uses
   Classes, SysUtils, Graphics, IntfGraphics, FileUtil, LazFileUtils, Dialogs,
 
   // These units are part of the lazMapViewerPkg package
-  mvengine, mvdrawingengine, mvtypes, mvmapprovider, mvcache;
+  mvengine, mvdrawingengine, mvtypes, mvcache;
 
 type
   TMapServer = class(TComponent)
@@ -36,7 +34,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor  Destroy; override;
-    procedure SetMapProvider(aValue: String);
+    procedure SetMapProvider(aValue: string);
     procedure GetMapImage(Lon, Lat: Double; W, H, Z: Integer; var aBitmap: TBitmap);
     procedure LonLatToScreen(Lon, Lat:Double; var aPt: TPoint);
     procedure ScreenToLonLat(aPt: TPoint; var Lon, Lat: Double);
@@ -53,9 +51,9 @@ begin
   Width := 300;
   Height := 300;
   Engine := TMapViewerEngine.Create(self);
-  Engine.CachePath := SysUtils.GetTempDir(False) + 'cache/';
+  Engine.CachePath := SysUtils.GetTempDir(false) + 'cache/';
   Engine.CacheOnDisk := true;
-  Engine.UseThreads := True;
+  Engine.UseThreads := true;
   Engine.MapProvider:= 'OpenStreetMap Standard';
   Engine.OnDrawTile := @DoDrawTile;
   Engine.DrawTitleInGuiThread := false;
@@ -70,7 +68,7 @@ end;
 
 destructor TMapServer.Destroy;
 begin
-  if DeleteDirectory(Engine.CachePath, True) then
+  if DeleteDirectory(Engine.CachePath, true) then
     RemoveDirUTF8(Engine.CachePath);
   Engine.Free;
   inherited Destroy;
@@ -85,7 +83,7 @@ begin
     DrawingEngine.FillPixels(X, Y, X + TileSize.CX, Y + TileSize.CY, clWhite)
 end;
 
-procedure TMapServer.SetMapProvider(aValue: String);
+procedure TMapServer.SetMapProvider(aValue: string);
 begin
   try
     Engine.MapProvider := aValue;
@@ -101,18 +99,18 @@ var
   TmpBitmap: TBitmap;
 begin
   if aBitmap = nil then exit;
-  Engine.Active := False;
+  Engine.Active := false;
   Engine.Zoom := Z;
   LonLat.Lon := Lon;
   LonLat.Lat := Lat;
   Engine.Center := LonLat;
   Engine.SetSize(W, H);
   DrawingEngine.CreateBuffer(W, H);
-  Engine.Active := True;
+  Engine.Active := true;
   Engine.Jobqueue.WaitAllJobTerminated(Engine);
   Engine.Redraw;
   TmpBitmap := DrawingEngine.SaveToImage(TBitmap) as TBitmap;
-  Engine.Active := False;
+  Engine.Active := false;
   with aBitmap do
   begin
     if (Width <> W) or (Height <> H) then SetSize(W, H);

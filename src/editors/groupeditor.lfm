@@ -7,9 +7,9 @@ object GroupEditorForm: TGroupEditorForm
   Caption = 'Group Editor'
   ClientHeight = 231
   ClientWidth = 538
-  OnCreate = FormCreate
   Position = poDefaultSizeOnly
-  LCLVersion = '3.2.0.0'
+  LCLVersion = '4.4.0.0'
+  OnCreate = FormCreate
   object Panel1: TPanel
     Left = 0
     Height = 50
@@ -21,11 +21,11 @@ object GroupEditorForm: TGroupEditorForm
     ClientWidth = 538
     TabOrder = 0
     object OkBtn: TButton
-      Left = 351
+      Left = 318
       Height = 25
       Top = 8
-      Width = 75
-      Caption = 'OK'
+      Width = 115
+      Caption = 'Make Changes'
       Default = True
       TabOrder = 0
       OnClick = OkBtnClick
@@ -36,7 +36,7 @@ object GroupEditorForm: TGroupEditorForm
       Top = 9
       Width = 75
       Cancel = True
-      Caption = 'Cancel'
+      Caption = 'Close'
       ModalResult = 2
       TabOrder = 1
     end
@@ -53,8 +53,8 @@ object GroupEditorForm: TGroupEditorForm
     BorderSpacing.Bottom = 8
     BevelOuter = bvNone
     BorderStyle = bsSingle
-    ClientHeight = 153
-    ClientWidth = 502
+    ClientHeight = 157
+    ClientWidth = 506
     Color = clWindow
     ParentBackground = False
     ParentColor = False

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       sourceeditor
  Description:  a dialog form that edits a Water Quality source
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit sourceeditor;
@@ -24,17 +22,18 @@ type
   { TSourceEditorForm }
 
   TSourceEditorForm = class(TForm)
-    CancelBtn: TButton;
-    HelpBtn: TButton;
-    Label1: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    OkBtn: TButton;
-    Panel1: TPanel;
-    Panel2: TPanel;
-    PatternEdit: TEditButton;
+    CancelBtn:       TButton;
+    HelpBtn:         TButton;
+    Label1:          TLabel;
+    Label2:          TLabel;
+    Label3:          TLabel;
+    OkBtn:           TButton;
+    Panel1:          TPanel;
+    Panel2:          TPanel;
+    PatternEdit:     TEditButton;
     SourceTypeCombo: TComboBox;
-    StrengthEdit: TFloatSpinEditEx;
+    StrengthEdit:    TFloatSpinEditEx;
+
     procedure PatternEditButtonClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure OkBtnClick(Sender: TObject);
@@ -46,7 +45,7 @@ type
   public
     HasChanged: Boolean;
     procedure LoadSource(const Index: Integer);
-    function  GetSourceStrength: String;
+    function  GetSourceStrength: string;
   end;
 
 var
@@ -57,29 +56,31 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, utils, config, patternselector, epanet2;
+  main, project, utils, config, patterneditor, epanet2, resourcestrings;
 
 procedure TSourceEditorForm.FormCreate(Sender: TObject);
 begin
-  Color := config.ThemeColor;
+  Color := config.FormColor;
   Font.Size := config.FontSize;
 end;
 
 procedure TSourceEditorForm.OkBtnClick(Sender: TObject);
 var
-  I: Integer;
   T: Integer;
   P: Integer;
   V: Single;
-  Pattern: String;
+  Pattern: string;
 begin
   Pattern := Trim(PatternEdit.Text);
-  if Length(Pattern) = 0 then P := 0 else
+  if Length(Pattern) = 0 then
+    P := 0
+  else
   begin
-    P := project.GetItemIndex(cPatterns, Pattern);
+    P := project.GetItemIndex(ctPatterns, Pattern);
     if P = 0 then
     begin
-      showmessage('Pattern ' + Pattern + ' does not exist.');
+      utils.MsgDlg(rsMissingData, Format(rsNoPattern, [Pattern]), mtError, [mbOK]);
+      PatternEdit.SetFocus;
       exit;
     end;
   end;
@@ -95,11 +96,10 @@ end;
 
 procedure TSourceEditorForm.PatternEditButtonClick(Sender: TObject);
 var
-  I: Integer;
-  S: String;
+  S: string;
 begin
   S := PatternEdit.Text;
-  with TPatternSelectorForm.Create(self) do
+  with TPatternEditorForm.Create(self) do
   try
     Setup(S);
     ShowModal;
@@ -112,22 +112,21 @@ end;
 
 procedure TSourceEditorForm.PatternComboChange(Sender: TObject);
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 procedure TSourceEditorForm.StrengthEditChange(Sender: TObject);
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 procedure TSourceEditorForm.HelpBtnClick(Sender: TObject);
 begin
-  MainForm.ShowHelp('#source_quality');
+  MainForm.ViewHelp('#source_quality');
 end;
 
 procedure TSourceEditorForm.LoadSource(const Index: Integer);
 var
-  I: Integer;
   V: Single = 0;
 begin
   NodeIndex := Index;
@@ -138,12 +137,12 @@ begin
     epanet2.ENgetnodevalue(Index, EN_SOURCEQUAL, V);
     StrengthEdit.Value := V;
     epanet2.ENgetnodevalue(Index, EN_SOURCEPAT, V);
-    PatternEdit.Text := project.GetID(cPatterns, Round(V));
+    PatternEdit.Text := project.GetID(ctPatterns, Round(V));
   end;
-  HasChanged := False;
+  HasChanged := false;
 end;
 
-function TSourceEditorForm.GetSourceStrength: String;
+function TSourceEditorForm.GetSourceStrength: string;
 begin
   Result := utils.Float2Str(StrengthEdit.Value, 4);
 end;

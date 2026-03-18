@@ -1,13 +1,11 @@
 object MapLocaterFrame: TMapLocaterFrame
   Left = 0
-  Height = 322
+  Height = 271
   Top = 0
   Width = 239
-  ClientHeight = 322
+  ClientHeight = 271
   ClientWidth = 239
-  Color = clCream
-  ParentBackground = False
-  ParentColor = False
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
   Visible = False
   DesignLeft = 1515
@@ -21,18 +19,15 @@ object MapLocaterFrame: TMapLocaterFrame
     Caption = 'Object Locater'
     ClientHeight = 28
     ClientWidth = 239
-    Color = 16316664
     Font.Style = [fsBold]
-    ParentBackground = False
-    ParentColor = False
     ParentFont = False
-    TabOrder = 4
+    TabOrder = 3
     object CloseBtn: TSpeedButton
-      Left = 215
-      Height = 20
+      Left = 209
+      Height = 26
       Hint = 'Close'
       Top = 2
-      Width = 20
+      Width = 26
       Anchors = [akTop, akRight]
       AutoSize = True
       Flat = True
@@ -93,30 +88,30 @@ object MapLocaterFrame: TMapLocaterFrame
       Images = mainForm.WindowImageList
       ImageIndex = 1
       ImageWidth = 16
-      OnClick = CloseBtnClick
       ShowCaption = False
       ShowHint = True
       ParentShowHint = False
+      OnClick = CloseBtnClick
     end
   end
-  object ResultsLbl: TLabel
+  object ResultsLabel: TLabel
     Left = 16
     Height = 15
-    Top = 161
+    Top = 115
     Width = 77
     Caption = 'Adjacent Links'
     ParentColor = False
   end
-  object ItemsLbx: TListBox
+  object ItemsListbox: TListBox
     Left = 16
     Height = 118
-    Top = 186
+    Top = 140
     Width = 200
     ItemHeight = 0
-    TabOrder = 3
-    OnClick = ItemsLbxClick
+    TabOrder = 2
+    OnClick = ItemsListboxClick
   end
-  object NamedLbl: TLabel
+  object NamedLabel: TLabel
     Left = 16
     Height = 15
     Top = 84
@@ -124,38 +119,24 @@ object MapLocaterFrame: TMapLocaterFrame
     Caption = 'Named'
     ParentColor = False
   end
-  object NameEdt: TEdit
+  object NameEdit: TEdit
     Left = 72
     Height = 23
     Top = 78
     Width = 144
     MaxLength = 31
     TabOrder = 1
-    OnChange = NameEdtChange
-    OnKeyDown = NameEdtKeyDown
+    OnChange = NameEditChange
+    OnKeyDown = NameEditKeyDown
   end
-  object SearchBtn: TBitBtn
-    Left = 72
-    Height = 30
-    Top = 116
-    Width = 144
-    Caption = 'Search'
-    GlyphShowMode = gsmAlways
-    Layout = blGlyphRight
-    Images = mainForm.WindowImageList
-    ImageIndex = 6
-    ImageWidth = 16
-    OnClick = SearchBtnClick
-    TabOrder = 2
-  end
-  object FindLbl: TLabel
+  object FindLabel: TLabel
     Left = 16
     Height = 15
     Top = 48
     Width = 23
     Caption = 'Find'
   end
-  object FindCbx: TComboBox
+  object FindCombo: TComboBox
     Left = 72
     Height = 23
     Top = 40
@@ -174,6 +155,6 @@ object MapLocaterFrame: TMapLocaterFrame
     Style = csOwnerDrawFixed
     TabOrder = 0
     Text = 'a Node'
-    OnChange = FindCbxChange
+    OnChange = FindComboChange
   end
 end

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ project:      EPANET-UI
+ Version:      1.0.0
  Module:       projectsetup
- Description:  form unit that edits project default settings
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  form that edits project default settings
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit projectsetup;
@@ -17,71 +15,56 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ComCtrls, StdCtrls,
-  ValEdit, Grids, ExtCtrls, StrUtils, lclIntf;
-
-const
-  IDPrefixName: array[1..8] of string =
-    ('Junctions', 'Reservoirs', 'Tanks', 'Pipes', 'Pumps', 'Valves',
-     'Patterns', 'Curves');
-
-  PropertyName: array[1..6] of string =
-    ('Node Elevation', 'Tank Height', 'Tank Diameter',
-     'Pipe Length', 'Pipe Diameter', 'Pipe Roughness');
-
-  HydOptionName: array[1..7] of string =
-    ('Flow Units', 'Head Loss Formula', 'Service Pressure',
-    'Maximum Trials', 'Accuracy', 'Head Tolerance', 'Flow Tolerance');
-
-  MapExtentsName: array[1..5] of string =
-    ('Lower Left X', 'Lower Left Y', 'Upper Right X', 'Upper Right Y',
-     'Map Units');
-
-  HintLabels: array[0..3] of string =
-    (' Hydraulic analysis options' ,
-     ' ID prefixes for new objects',
-     ' Properties for new objects',
-     ' Map dimensions and units'
-     );
+  ValEdit, Grids, ExtCtrls, StrUtils, lclIntf, LCLtype, Math;
 
 type
 
   { TProjectSetupForm }
 
   TProjectSetupForm = class(TForm)
-    OkBtn: TButton;
-    CancelBtn: TButton;
-    HelpBtn: TButton;
-    CheckBox1: TCheckBox;
-    Label1: TLabel;
-    Panel1: TPanel;
-    Panel2: TPanel;
-    TabControl1: TTabControl;
-    ValueListEditor1: TValueListEditor;
+    OkBtn:             TButton;
+    CancelBtn:         TButton;
+    HelpBtn:           TButton;
+    CheckBox1:         TCheckBox;
+    Label1:            TLabel;
+    Panel1:            TPanel;
+    HintPanel:         TPanel;
+    RadioGroup1:       TRadioGroup;
+    ValueListEditor1:  TValueListEditor;
+
     procedure OkBtnClick(Sender: TObject);
     procedure HelpBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure TabControl1Change(Sender: TObject);
-    procedure TabControl1Changing(Sender: TObject; var AllowChange: Boolean);
+    procedure RadioGroup1Click(Sender: TObject);
     procedure ValueListEditor1PickListSelect(Sender: TObject);
     procedure ValueListEditor1PrepareCanvas(sender: TObject; aCol,
       aRow: Integer; aState: TGridDrawState);
     procedure ValueListEditor1SelectCell(Sender: TObject; aCol, aRow: Integer;
       var CanSelect: Boolean);
+
   private
-    TmpIDprefix: array[1..8] of string;
-    TmpDefProps: array[1..6] of string;
-    TmpDefOptions: array[1..7] of string;
-    TmpMapExtents: array[1..5] of string;
+    PageIndex:     Integer;
+    OldFlowUnits:  string;
+    OldPressUnits: string;
+    OldHlossModel: string;
+    NewHlossModel: string;
+
     procedure EditIDPrefixes;
     procedure EditHydOptions;
     procedure EditProperties;
     procedure EditMapExtents;
     function  ValidateEditorValues: Boolean;
-    procedure SaveEditorValues;
+    procedure TransferEditorValues;
+    procedure SetEditorContents;
     procedure SetUnitSystemLabel(FlowUnits: string);
+    function  ConfirmChanges(var ConversionType: Integer): Boolean;
+    procedure ConvertRoughness(ConversionType: Integer; NumLinks: Integer;
+      var Roughness: array of Single);
+
   public
-    SaveDefaults: Boolean;
+    SaveDefaults:  Boolean;
+    RemoveResults: Boolean;
 
   end;
 
@@ -95,23 +78,48 @@ implementation
 { TProjectSetupForm }
 
 uses
-  main, project, config, utils, mapcoords;
+  main, project, config, utils, mapcoords, epanet2, resourcestrings;
+
+const
+  HintLabels: array[0..3] of string =
+    (rsHydOptions, rsIDPrefixes, rsNewObjProps, rsMapDimensions);
+
+  IDPrefixName: array[1..project.MAX_ID_PREFIXES] of string =
+    (rsJunctions, rsReservoirs, rsTanks, rsPipes, rsPumps, rsValves,
+     rsPatterns, rsCurves);
+
+  PropertyName: array[1..project.MAX_DEF_PROPS] of string =
+    (rsNodeElev, rsTankHeight, rsTankDiam, rsPipeLength, rsPipeDiam,
+     rsPipeRough);
+
+  HydOptionName: array[1..project.MAX_DEF_OPTIONS] of string =
+    (rsFlowUnits, rsPressUnits, rsHlossFormula, rsSpGrav, rsSpViscos,
+     rsMaxTrials, rsAccuracy, rsHeadTol, rsFlowTol);
+
+  MapExtentsName: array[1..6] of string =
+    (rsLowLeftX, rsLowLeftY, rsUpRightX, rsUpRightY, rsMapUnits, 'EPSG');
+
+  mxMapUnits = 5;
+  mxEpsg     = 6;
+
+  FormulaConversion = 0;
+  DefaultConversion = 1;
+  NoConversion      = 2;
 
 var
+  TmpIDprefix:   array[1..project.MAX_ID_PREFIXES] of string;
+  TmpDefProps:   array[1..project.MAX_DEF_PROPS] of string;
+  TmpDefOptions: array[1..project.MAX_DEF_OPTIONS] of string;
+  TmpMapExtents: array[1..High(MapExtentsName)] of string;
   MapExtentRect: TDoubleRect;
 
 procedure TProjectSetupForm.FormCreate(Sender: TObject);
 begin
-  Color := config.ThemeColor;
+  Color := config.FormColor;
   Font.Size := config.FontSize;
   ValueListEditor1.FixedColor := config.ThemeColor;
-  with TabControl1 do
-  begin
-    Tabs.Add('Options');
-    Tabs.Add('ID Labels');
-    Tabs.Add('Properties');
-    if not MainForm.MapFrame.HasWebBasemap then Tabs.Add('Map');
-  end;
+  ValueListEditor1.DefaultColWidth := ValueListEditor1.ClientWidth div 2;
+  RadioGroup1.Color := config.ThemeColor;
 end;
 
 procedure TProjectSetupForm.FormShow(Sender: TObject);
@@ -121,84 +129,111 @@ begin
   TmpMapExtents[2] := Utils.Float2Str(MapExtentRect.LowerLeft.Y, 6);
   TmpMapExtents[3] := Utils.Float2Str(MapExtentRect.UpperRight.X, 6);
   TmpMapExtents[4] := Utils.Float2Str(MapExtentRect.UpperRight.Y, 6);
-  TmpMapExtents[5] := MapUnitsStr[Project.MapUnits];
-  TmpIDprefix := Project.IDprefix;
-  TmpDefProps := Project.DefProps;
-  Project.GetDefHydOptions(TmpDefOptions);
+  TmpMapExtents[5] := MapUnitsStr[project.MapUnits];
+  TmpMapExtents[6] := IntToStr(project.MapEPSG);
+
+  TmpIDprefix := project.IDprefix;
+  TmpDefProps := project.DefProps;
+  project.GetDefHydOptions(TmpDefOptions);
+
+  OldFlowUnits := TmpDefOptions[htFlowUnits];
+  OldPressUnits := TmpDefOptions[htPressUnits];
+  OldHlossModel := TmpDefOptions[htHlossModel];
   SetUnitSystemLabel(TmpDefOptions[1]);
-  TabControl1.TabIndex := 0;
-  Panel2.Caption := HintLabels[0];
+
+  HintPanel.Caption := HintLabels[0];
+  RadioGroup1.ItemIndex := 0;
+  PageIndex := 0;
   EditHydOptions;
   ValueListEditor1.Row := 1;
 end;
 
+procedure TProjectSetupForm.RadioGroup1Click(Sender: TObject);
+begin
+ ValueListEditor1.EditorMode := false;
+ TransferEditorValues;
+ PageIndex := RadioGroup1.ItemIndex;
+ SetEditorContents;
+ ValueListEditor1.Row := 1;
+end;
+
 procedure TProjectSetupForm.OkBtnClick(Sender: TObject);
 //
-//  Saves edited set of defaults to project.
+//  Save edited values of project default settings.
 //
+var
+  ConversionType: Integer = -1;
+  NumLinks:       Integer = 0;
+  I:              Integer;
+  Roughness:      array of Single;
 begin
+  SetLength(Roughness, 0);
   ValueListEditor1.EditorMode := false;
-  SaveEditorValues;
+  TransferEditorValues;
   if not ValidateEditorValues then exit;
-  Project.SetDefHydOptions(TmpDefOptions);
-  Project.IDprefix := TmpIDprefix;
-  Project.DefProps := TmpDefProps;
-  if TabControl1.Tabs.Count = 4 then
+  NewHlossModel := TmpDefOptions[htHlossModel];
+
+  if ConfirmChanges(ConversionType) then
   begin
-    Project.MapUnits := AnsiIndexStr(TmpMapExtents[5], Project.MapUnitsStr);
+    // Save flow & pressure units
+    project.SetFlowUnits(TmpDefOptions[htFlowUnits]);
+    project.SetPressUnits(TmpDefOptions[htPressUnits]);
+
+    // Save current pipe roughness values if head loss model has changed
+    if ConversionType >= 0 then
+    begin
+      NumLinks := project.GetItemCount(ctLinks);
+      SetLength(Roughness, NumLinks + 1);
+      for I := 1 to NumLinks do
+        epanet2.ENgetlinkvalue(I, EN_ROUGHNESS, Roughness[I]);
+    end;
+
+    // Update project with new setup choices
+    project.IDprefix := TmpIDprefix;
+    project.DefProps := TmpDefProps;
+    project.SetDefHydOptions(TmpDefOptions);
+    project.MapUnits := AnsiIndexStr(TmpMapExtents[mxMapUnits], project.MapUnitsStr);
+    if Length(Trim(TmpMapExtents[mxEpsg])) = 0 then
+      TmpMapExtents[mxEpsg] := '0';
+    project.MapEPSG := StrToInt(TmpMapExtents[mxEpsg]);
     MainForm.MapFrame.ChangeExtent(MapExtentRect);
-    Project.HasChanged := True;
+
+    // Convert pipe roughness values if head loss model has changed
+    if ConversionType >= 0 then
+    begin
+      ConvertRoughness(ConversionType, NumLinks, Roughness);
+      for I := 1 to NumLinks do
+        epanet2.ENsetlinkvalue(I, EN_ROUGHNESS, Roughness[I]);
+      SetLength(Roughness, 0);
+    end;
+
+    if (not project.HasChanged) and (not project.IsEmpty) then
+      project.HasChanged := true;
+    SaveDefaults := CheckBox1.Checked;
+    ModalResult := mrOk;
   end;
-  SaveDefaults := CheckBox1.Checked;
-  ModalResult := mrOk;
 end;
 
 procedure TProjectSetupForm.HelpBtnClick(Sender: TObject);
 begin
- MainForm.ShowHelp('#project_setup');
-end;
-
-procedure TProjectSetupForm.TabControl1Change(Sender: TObject);
-//
-// Switches contents of the ValueListEditor when a new tab selected
-//
-begin
-  case TabControl1.TabIndex of
-  0: EditHydOptions;
-  1: EditIDPrefixes;
-  2: EditProperties;
-  3: EditMapExtents;
-  end;
-  Panel2.Caption := HintLabels[TabControl1.TabIndex];
-  ValueListEditor1.Row := 1;
-end;
-
-procedure TProjectSetupForm.TabControl1Changing(Sender: TObject;
-  var AllowChange: Boolean);
-//
-//  Saves contents of ValueListEditor when a new tab is selected
-//
-begin
-  SaveEditorValues;
-  AllowChange := true;
+ MainForm.ViewHelp('#project_setup');
 end;
 
 procedure TProjectSetupForm.ValueListEditor1PickListSelect(Sender: TObject);
 //
-//  Changes the Units System label when a new value for Flow Units selected.
+//  Change the Units System label when a new value for Flow Units selected.
 //
 begin
-  if TabControl1.TabIndex = 0 then with ValueListEditor1 do
+  if PageIndex = 0 then with ValueListEditor1 do
+  begin
     if Row = 1 then
       SetUnitSystemLabel(Cells[1, Row]);
+  end;
 end;
 
 procedure TProjectSetupForm.ValueListEditor1PrepareCanvas(sender: TObject;
   aCol, aRow: Integer; aState: TGridDrawState);
 begin
-//  if (aRow > 0) and (aCol > 0) then
-//    ValueListEditor1.Canvas.Brush.Color := clWindow; //clDefault;  //clWindow;
-//  if (aRow > 0) and (aCol = 0) then
   if aRow = 0 then
     ValueListEditor1.Canvas.Brush.Color := config.ThemeColor;
 end;
@@ -206,7 +241,7 @@ end;
 procedure TProjectSetupForm.ValueListEditor1SelectCell(Sender: TObject; aCol,
   aRow: Integer; var CanSelect: Boolean);
 //
-//  Selects cell in column 1 when a cell in column 0 is selected.
+//  Select cell in column 1 of the ValueListEditor when a column 0 cell is selected.
 //
 begin
   if aCol = 0 then
@@ -220,7 +255,7 @@ end;
 
 procedure TProjectSetupForm.EditIDPrefixes;
 //
-//  Sets up the ValueListEditor to edit object ID prefixes.
+//  Set up the ValueListEditor to edit object ID prefixes.
 //
 var
   I: Integer;
@@ -228,8 +263,8 @@ begin
   with ValueListEditor1 do
   begin
     Clear;
-    TitleCaptions[0] := 'Object Type';
-    TitleCaptions[1] := 'ID Prefix';
+    TitleCaptions[0] := rsObjectType;
+    TitleCaptions[1] := rsIDPrefix;
     RowCount := 1;
     for I := 1 to 8 do
       InsertRow(IDPrefixName[I], TmpIDprefix[I], true);
@@ -239,7 +274,7 @@ end;
 
 procedure TProjectSetupForm.EditHydOptions;
 //
-//  Sets up the ValueListeditor to edit hydraulic options.
+//  Set up the ValueListeditor to edit hydraulic options.
 //
 var
   I: Integer;
@@ -250,21 +285,33 @@ begin
     with ValueListEditor1 do
     begin
       Clear;
-      TitleCaptions[0] := 'Hydraulic Option';
-      TitleCaptions[1] := 'Value';
+      TitleCaptions[0] := rsHydOption;
+      TitleCaptions[1] := rsValue;
+
       RowCount := 1;
-      for I := 1 to 7 do
+      for I := 1 to project.MAX_DEF_OPTIONS do
         InsertRow(HydOptionName[I], TmpDefOptions[I], true);
-      OptionList.AddStrings(Project.FlowUnitsStr, true);
-      with ItemProps['Flow Units'] do
+
+      OptionList.AddStrings(project.FlowUnitsStr, true);
+      with ItemProps[rsFlowUnits] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
+
       OptionList.Clear;
-      OptionList.AddStrings(Project.HLossModelStr, true);
-      with ItemProps['Head Loss Formula'] do
+      OptionList.AddStrings(project.PressUnitsStr, true);
+      with ItemProps[rsPressUnits] do
+      begin
+        EditStyle := esPickList;
+        PickList := OptionList;
+        ReadOnly := true;
+      end;
+
+      OptionList.Clear;
+      OptionList.AddStrings(project.HLossModelStr, true);
+      with ItemProps[rsHlossFormula] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
@@ -279,7 +326,7 @@ end;
 
 procedure TProjectSetupForm.EditProperties;
 //
-//  Sets up the ValueListEditor to edit node/link properties.
+//  Set up the ValueListEditor to edit node/link properties.
 //
 var
   I: Integer;
@@ -287,18 +334,20 @@ begin
  with ValueListEditor1 do
  begin
    Clear;
-   TitleCaptions[0] := 'Object Property';
-   TitleCaptions[1] := 'Value';
+   TitleCaptions[0] := rsObjProperty;
+   TitleCaptions[1] := rsValue;
    RowCount := 1;
    for I := 1 to 6 do
+   begin
      InsertRow(PropertyName[I], TmpDefProps[I], true);
+   end;
    Show;
  end;
 end;
 
 procedure TProjectSetupForm.EditMapExtents;
 //
-//  Sets up the ValueListEditor to edit network map extents.
+//  Set up the ValueListEditor to edit network map extents.
 //
 var
   I: Integer;
@@ -309,18 +358,19 @@ begin
    with ValueListEditor1 do
    begin
      Clear;
-     TitleCaptions[0] := 'Map Property';
-     TitleCaptions[1] := 'Value';
+     TitleCaptions[0] := rsMapProperty;
+     TitleCaptions[1] := rsValue;
      RowCount := 1;
-     for I := 1 to 5 do
+     for I := 1 to 6 do
        InsertRow(MapExtentsName[I], TmpMapExtents[I], true);
-     OptionList.AddStrings(Project.MapUnitsStr, true);
-     with ItemProps['Map Units'] do
+     OptionList.AddStrings(project.MapUnitsStr, true);
+     with ItemProps[rsMapUnits] do
      begin
        EditStyle := esPickList;
        PickList := OptionList;
        ReadOnly := true;
      end;
+     if MainForm.MapFrame.HasWebBasemap then Enabled := false;
      Show;
    end;
  finally
@@ -330,35 +380,40 @@ end;
 
 function TProjectSetupForm.ValidateEditorValues: Boolean;
 var
-  I: Integer;
+  I:   Integer;
   Tab: Integer;
   Row: Integer;
-  X: Double;
-  E: array[1..4] of Double;
-  Msg: String = '';
+  X:   Double;
+  E:   array[1..4] of Double = (0,0,0,0);
+  Msg: string = '';
 begin
-  Result := True;
+  Result := true;
   Tab := -1;
   Row := -1;
+
+  // Object Properties
   for I := 1 to 6 do
   begin
-    if not TryStrToFloat(TmpDefProps[I], X) then
+    if not TryStrToFloat(TmpDefProps[I], X)
+    or ((I > 1) and (X <= 0)) then
     begin
-      Msg := TmpDefProps[I] + ' is not a valid number.';
+      Msg := TmpDefProps[I] + rsInvalidNumber;
       Tab := 2;
       Row := I;
-      Result := False;
+      Result := false;
       break;
     end;
   end;
-  if Result = True then for I := 1 to 4 do
+
+  // Map Properties
+  if Result = true then for I := 1 to 4 do
   begin
     if not TryStrToFloat(TmpMapExtents[I], E[I]) then
     begin
-      Msg := TmpMapExtents[I] + ' is not a valid number.';
+      Msg := TmpMapExtents[I] + rsInvalidNumber;
       Tab := 3;
       Row := I;
-      Result := False;
+      Result := false;
       break;
     end;
   end;
@@ -366,77 +421,315 @@ begin
   begin
     MapExtentRect.LowerLeft := DoublePoint(E[1], E[2]);
     MapExtentRect.UpperRight := DoublePoint(E[3], E[4]);
-    if SameText(TmpMapExtents[5], Project.MapUnitsStr[muDegrees]) and
+    if SameText(TmpMapExtents[5], project.MapUnitsStr[muDegrees]) and
        (mapcoords.HasLatLonCoords(MapExtentRect) = false) then
-      begin
-        Msg := 'Map coordinates must be between -180 and 180 degrees.';
-        Tab := 3;
-        Row := 1;
-        Result := False;
-      end;
+    begin
+      Msg := rsBadMapCoords;
+      Tab := 3;
+      Row := 1;
+      Result := false;
     end;
+  end;
 
-  if Result = true then for I := 3 to 7 do
+  // Project Options
+  if Result = true then for I := 4 to 9 do
   begin
     if not TryStrToFloat(TmpDefOptions[I], X) then
     begin
-      Msg := TmpDefOptions[I] + ' is not a valid value.';
+      Msg := TmpDefOptions[I] + rsInvalidNumber;
       Tab := 0;
       Row := I;
-      Result := False;
+      Result := false;
       break;
     end;
   end;
+
+  // ID Prefixes
   if Result = true then for I := 1 to 8 do
   begin
-    if (Pos(' ', TmpIdPrefix[I]) > 0) or (Pos(';', TmpIdPrefix[I]) > 0) then
+    if (Pos(' ', TmpIdPrefix[I]) > 0)
+    or (Pos(';', TmpIdPrefix[I]) > 0) then
     begin
-      Msg := 'ID labels cannot contain spaces or semi-colons.';
+      Msg := rsBadID;
       Tab := 1;
       Row := I;
-      Result := False;
+      Result := false;
       break;
     end;
   end;
+
   if Result = false then
   begin
-    if TabControl1.TabIndex <> Tab then TabControl1.TabIndex := Tab;
-    TabControl1Change(self);
+    RadioGroup1.ItemIndex := Tab;
+    SetEditorContents;
     ValueListEditor1.Row := Row;
-    Utils.MsgDlg(Msg, mtError, [mbOK]);
+    Utils.MsgDlg(rsValidError, Msg, mtError, [mbOK], self);
     ValueListEditor1.SetFocus;
   end;
 end;
 
-procedure TProjectSetupForm.SaveEditorValues;
+procedure TProjectSetupForm.TransferEditorValues;
 //
-//  Saves current values in the ValueListEditor to the TmpDefaults array.
+//  Transfer current values in the ValueListEditor to the TmpDefaults array.
 //
 var
   I: Integer;
 begin
  with ValueListEditor1 do
-   case TabControl1.TabIndex of
-     1: for I := 1 to RowCount - 1 do
-          TmpIDprefix[I] := Cells[1, I];
-     2: for I := 1 to RowCount - 1 do
-          TmpDefProps[I] := Cells[1, I];
-     0: for I := 1 to RowCount - 1 do
+   case PageIndex of
+     0:
+       for I := 1 to RowCount - 1 do
           TmpDefOptions[I] := Cells[1, I];
-     3: for I := 1 to RowCount - 1 do
+     1:
+       for I := 1 to RowCount - 1 do
+          TmpIDprefix[I] := Cells[1, I];
+     2:
+       for I := 1 to RowCount - 1 do
+          TmpDefProps[I] := Cells[1, I];
+     3:
+       for I := 1 to RowCount - 1 do
           TmpMapExtents[I] := Cells[1, I];
    end;
 end;
 
+procedure TProjectSetupForm.SetEditorContents;
+begin
+ ValueListEditor1.Enabled := true;
+ case PageIndex of
+   0:
+     EditHydOptions;
+   1:
+     EditIDPrefixes;
+   2:
+     EditProperties;
+   3:
+     EditMapExtents;
+ end;
+ HintPanel.Caption := HintLabels[RadioGroup1.ItemIndex];
+ if (PageIndex = 3)
+ and MainForm.MapFrame.HasWebBasemap then
+   HintPanel.Caption := rsWebDimensions;
+end;
+
 procedure TProjectSetupForm.SetUnitSystemLabel(FlowUnits: string);
 //
-//  Changes the Unit System label for new choice of flow units.
+//  Change the Unit System label for new choice of flow units.
 //
 begin
-  if AnsiIndexText(FlowUnits, Project.FlowUnitsStr) < 5 then
-    Label1.Caption := 'Unit System: US'
+  if AnsiIndexText(FlowUnits, project.FlowUnitsStr) < 5 then
+    Label1.Caption := rsUnitSystemUS
   else
-    Label1.Caption := 'Unit System: SI';
+    Label1.Caption := rsUnitSystemSI;
+end;
+
+function TProjectSetupForm.ConfirmChanges(var ConversionType: Integer): Boolean;
+//
+//  Use a TaskDialog to confirm project changes resulting from setup choices.
+//
+var
+  Msg:               string = '';
+  NewFlowUnits:      string;
+  NewFlowIndex:      Integer;
+  OldFlowIndex:      Integer;
+  HlossModelChanged: Boolean = false;
+  HasCMmodelChange:  Boolean = false;
+begin
+  // If project is empty then return true
+  Result := true;
+  RemoveResults := false;
+  ConversionType := -1;
+  if project.IsEmpty then exit;
+
+  // Build up the TaskDialog's message indicating if choice of flow units,
+  // pressure units or head loss model has changed.
+
+  NewFlowUnits := TmpDefOptions[htFlowUnits];
+  if not SameText(OldFlowUnits, NewFlowUnits) then
+  begin
+    Msg := rsFlowConvert + NewFlowUnits;
+    OldFlowIndex := IndexText(OldFlowUnits, project.FlowUnitsStr);
+    NewFlowIndex := IndexText(NewFlowUnits, project.FlowUnitsStr);
+    // Index 5 is position in FlowUnitsStr array where metric flow units begin
+    if (OldFlowIndex < 5) and (NewFlowIndex >= 5) then
+      Msg := Msg + LineEnding + LineEnding + rsSIConvert
+    else if (OldFlowIndex >= 5) and (NewFlowIndex < 5) then
+      Msg := Msg + LineEnding + LineEnding + rsUSConvert;
+  end;
+
+  if not SameText(OldPressUnits, TmpDefOptions[htPressUnits]) then
+  begin
+    if Length(Msg) > 0 then Msg := Msg + LineEnding + LineEnding;
+    Msg := Msg + rsPressConvert + TmpDefOptions[htPressUnits];
+  end;
+
+  if not SameText(OldHlossModel, NewHlossModel) then
+  begin
+    // Determine if project's head loss model was changed from/to C-M
+    HlossModelChanged := true;
+    if SameText(OldHlossModel, rsCM) or SameText(NewHlossModel, rsCM) then
+      HasCMmodelChange := true;
+    if Length(Msg) > 0 then Msg := Msg + LineEnding + LineEnding;
+    Msg := Msg + rsHlossChanged + OldHlossModel + rsTo + NewHlossModel + '.' +
+           LineEnding + rsChangeRough;
+  end;
+
+  if Length(Msg) = 0 then exit;
+  Msg := rsSetupChanges + LineEnding + LineEnding + Msg;
+
+  // Assign contents of the TaskDialog and execute it
+  with TTaskDialog.Create(self) do
+  try
+    Caption := 'EPANET-UI';
+    Title := rsConfirmSetup;
+    Text := Msg;
+    Flags := Flags + [tfPositionRelativeToWindow];
+    MainIcon := tdiInformation;
+    CommonButtons := [tcbOk, tcbCancel];
+    DefaultButton := tcbOk;
+    if project.HasResults then
+      FooterText := rsResultsRemoved;
+
+    // Create radio buttons for choosing how to change pipe roughness
+    // values as a result of changing project's head loss model
+    if HlossModelChanged then
+    begin
+      // Conversion formula option only applies to H-W and D-W models
+      if not HasCMmodelChange then
+        with RadioButtons.Add do
+          Caption := rsConvertFormula;
+      with RadioButtons.Add do
+        Caption := rsDefaultRough + TmpDefProps[ptPipeRough];
+      with RadioButtons.Add do
+        Caption := rsNoRoughChange;
+    end;
+
+    if Execute then
+    begin
+      if ModalResult = mrOk then
+      begin
+        Result := true;
+        RemoveResults := true;
+
+        // Record how pipe roughness values should be changed
+        // (adjusting for no conversion formula option for C-M model)
+        if HlossModelChanged then
+        begin
+          ConversionType := RadioButton.Index;
+          if HasCMmodelChange then Inc(ConversionType);
+        end;
+      end
+      else Result := false;
+    end;
+  finally
+    Free;
+  end;
+end;
+
+procedure ConvertHWtoDW(NumLinks: Integer; var Roughness: array of Single);
+//
+//  Convert Hazen-Williams roughness coeffs. in Roughness to Darcy-Weisbach
+//  coeffs. for each of NumLinks links.
+//
+var
+  I:   Integer;
+  X:   Single = 0;
+  D:   Single = 0;   // Pipe diameter (meters)
+  C:   Single;   // H-W C-Factor (dimensionless)
+  E:   Single;   // D-W roughness height (meters)
+  Dcf: Single;   // Pipe diameter units conversion factor
+  Ecf: Single;   // D-W roughness units conversion factor
+begin
+  if GetUnitsSystem = usUS then
+  begin
+    Dcf := 0.0254;    // inches to meters
+    Ecf := 39370;     // meters to millinches
+  end
+  else
+  begin
+    Dcf := 0.001;     // millimeters to meters
+    Ecf := 1000;      // meters to millimeters
+  end;
+
+  for I := 1 to NumLinks do
+  begin
+    if project.GetLinkType(I) > ltPipe then continue;
+    epanet2.ENgetlinkvalue(I, EN_DIAMETER, X);
+    D := Dcf * X;
+    C := Roughness[I];
+
+    // Adams (2016) conversion formula (D & E in meters)
+    E := (3.7 * D) * exp(-C * power(D, 0.068) / 13.9);
+    Roughness[I] := E * Ecf;
+  end;
+end;
+
+procedure ConvertDWtoHW(NumLinks: Integer; var Roughness: array of Single);
+//
+//  Convert Darcy-Weisbach roughness coeffs. in Roughness to Hazen-Williams
+//  coeffs. for each of NumLinks links.
+//
+var
+  I:   Integer;
+  X:   Single = 0;
+  D:   Single;   // Pipe diameter (meters)
+  E:   Single;   // D-W roughness height (meters)
+  C:   Single;   // H-W C-Factor (dimensionless)
+  Ecf: Single;   // D-W roughness height conversion factor
+  Dcf: Single;   // Pipe diameter units conversion factor
+begin
+  if GetUnitsSystem = usUS then
+  begin
+    Dcf := 25.4 * 0.001;  // inches to meters
+    Ecf := Dcf / 1000;    // millinches to meters
+  end
+  else
+  begin
+    Dcf := 0.001;         // millimeters to meters
+    Ecf := Dcf;
+  end;
+
+  for I := 1 to NumLinks do
+  begin
+    if project.GetLinkType(I) > ltPipe then continue;
+    epanet2.ENgetlinkvalue(I, EN_DIAMETER, X);
+    D := DCF * X;
+    E := Roughness[I] * Ecf;
+
+    // Adams (2016) conversion formula (D & E in meters)
+    C := -13.9 * power(D, -0.068) * ln(E / 3.7 / D);
+    Roughness[I] := C;
+  end;
+end;
+
+procedure TProjectSetupForm.ConvertRoughness(ConversionType: Integer;
+  NumLinks: Integer; var Roughness: array of Single);
+//
+//  Converts pipe roughness values from one head loss model to another.
+//
+//  Note: Conversion by formula is not available for a head loss model
+//  change from/to the Chezy-Manning (C-M) model.
+//
+var
+  I:                Integer;
+  DefaultRoughness: Single;
+begin
+ if ConversionType = NoConversion then exit;
+
+ if ConversionType = DefaultConversion then
+ begin
+   DefaultRoughness := StrToFloat(TmpDefProps[ptPipeRough]);
+   for I := 1 to NumLinks do
+     Roughness[I] := DefaultRoughness;
+   exit;
+ end;
+
+ if ConversionType = FormulaConversion then
+ begin
+   if SameText(OldHlossModel, rsHW) and SameText(NewHlossModel, rsDW) then
+     ConvertHWtoDW(NumLinks, Roughness)
+   else if SameText(OldHlossModel, rsDW) and SameText(NewHlossModel, rsHW) then
+     ConvertDWtoHW(NumLinks, Roughness);
+ end;
 end;
 
 end.

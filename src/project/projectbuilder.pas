@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ project:      EPANET-UI
+ Version:      1.0.0
  Module:       projectbuilder
  Description:  Adds new objects to a project
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit projectbuilder;
@@ -18,7 +16,7 @@ interface
 uses
   Classes, SysUtils, Controls, Forms, Dialogs;
 
-function  FindUnusedID(Category: Integer; SubCategory: Integer): String;
+function  FindUnusedID(Category: Integer; SubCategory: Integer): string;
 procedure AddNode(NodeType: Integer; Xcoord: Double; Ycoord: Double);
 procedure AddLink(LinkType: Integer; Node1: Integer; Node2: Integer);
 procedure AddPattern;
@@ -26,15 +24,16 @@ procedure AddCurve;
 procedure AddLabel(Location: TPoint; Xcoord: Double; Ycoord: Double);
 procedure ImportShapeFile;
 procedure ImportDxfFile;
+procedure ImportCsvFile;
 
 implementation
 
 uses
   main, project, projectframe, mapframe, maplabel, labeleditor,
-  utils, shpimporter, dxfimporter, epanet2;
+  utils, shpimporter, dxfimporter, csvimporter, epanet2, resourcestrings;
 
 
-function FindUnusedID(Category: Integer; SubCategory: Integer): String;
+function FindUnusedID(Category: Integer; SubCategory: Integer): string;
 var
   I: Integer;
   N: Integer;
@@ -42,133 +41,140 @@ begin
   // IDprefix array contains prefixes for Junctions, Reservoirs, Tanks,
   // Pipes, Pumps, Valves, Patterns, and Curves in that order.
   case Category of
-  cNodes:    I := 1 + SubCategory;
-  cLinks:    I := 3 + SubCategory;
-  cPatterns: I := 7;
-  cCurves:   I := 8;
-  else       I := 0;
+    ctNodes:
+      I := 1 + SubCategory;
+    ctLinks:
+      I := 3 + SubCategory;
+    ctPatterns:
+      I := 7;
+    ctCurves:
+      I := 8;
+    else
+      I := 0;
   end;
   N := 0;
   while true do
   begin
     Inc(N);
-    Result := Project.IDprefix[I] + IntToStr(N);
-    if Project.GetItemIndex(Category, Result) = 0 then
+    Result := project.IDprefix[I] + IntToStr(N);
+    if project.GetItemIndex(Category, Result) = 0 then
       break;
   end;
 end;
 
 procedure AddNode(NodeType: Integer; Xcoord: Double; Ycoord: Double);
 var
-  ID: string;
+  ID:        string;
   NodeIndex: Integer = 0;
-  Err: Integer;
+  Err:       Integer;
 begin
-  ID := FindUnusedID(cNodes, NodeType);
-  Err := Epanet2.ENaddnode(PChar(ID), NodeType, NodeIndex);
+  ID := FindUnusedID(ctNodes, NodeType);
+  Err := epanet2.ENaddnode(PChar(ID), NodeType, NodeIndex);
   if Err = 0 then
   begin
-    Epanet2.ENsetcoord(NodeIndex, Xcoord, Ycoord);
-    Epanet2.ENsetnodevalue(NodeIndex, EN_ELEVATION,
-      StrToFloatDef(Project.DefProps[1], 0));
-    if NodeType = nTank then
+    epanet2.ENsetcoord(NodeIndex, Xcoord, Ycoord);
+    epanet2.ENsetnodevalue(NodeIndex, EN_ELEVATION,
+      StrToFloatDef(project.DefProps[1], 0));
+    if NodeType = ntTank then
     begin
-      Epanet2.ENsetnodevalue(NodeIndex, EN_MAXLEVEL,
-        StrToFloatDef(Project.DefProps[2], 0.0));
-      Epanet2.ENsetnodevalue(NodeIndex, EN_TANKDIAM,
-        StrToFloatDef(Project.DefProps[3], 0.0));
+      epanet2.ENsetnodevalue(NodeIndex, EN_MAXLEVEL,
+        StrToFloatDef(project.DefProps[2], 0.0));
+      epanet2.ENsetnodevalue(NodeIndex, EN_TANKDIAM,
+        StrToFloatDef(project.DefProps[3], 0.0));
     end;
     MainForm.MapFrame.RedrawMap;
-    MainForm.ProjectFrame.SelectItem(cNodes, NodeIndex-1);
-    Project.HasChanged := True;
-    Project.UpdateResultsStatus;
+    MainForm.ProjectFrame.SelectItem(ctNodes, NodeIndex-1);
+    project.HasChanged := true;
+    project.UpdateResultsStatus;
   end
-  else Utils.MsgDlg('Unable to add a new node.', mtError, [mbOK]);
+  else
+    utils.MsgDlg(rsCreateFail, rsNoAddNode, mtError, [mbOK]);
 end;
 
 procedure AddLinkVertices(LinkIndex: Integer);
 var
-  X: array[0..Project.MAX_VERTICES] of Double;
-  Y: array[0..Project.MAX_VERTICES] of Double;
+  X: array[0..project.MAX_VERTICES] of Double;
+  Y: array[0..project.MAX_VERTICES] of Double;
   N: Integer = 0;
 begin
-  X[0] := 0;
-  Y[0] := 0;
   MainForm.MapFrame.GetVertices(X, Y, N);
   if N > 0 then
   begin
-    Epanet2.ENsetvertices(LinkIndex, X[0], Y[0], N);
-    Project.HasChanged := True;
+    epanet2.ENsetvertices(LinkIndex, X[0], Y[0], N);
+    project.HasChanged := true;
   end;
 end;
 
 procedure AddLink(LinkType: Integer; Node1: Integer; Node2: Integer);
 var
-  LinkID: string;
-  FromNodeID, ToNodeID: string;
-  LinkIndex: Integer = 0;
-  Length: Single = 0;
-  Err: Integer;
+  LinkID:     string;
+  FromNodeID: string;
+  ToNodeID:   string;
+  LinkIndex:  Integer = 0;
+  Length:     Single = 0;
+  Err:        Integer;
 begin
-  LinkID := FindUnusedID(cLinks, LinkType);
-  FromNodeID := Project.GetID(cNodes, Node1);
-  ToNodeID := Project.GetID(cNodes, Node2);
-  if LinkType = lValve then LinkType := EN_TCV;
-  Err := Epanet2.ENaddlink(Pchar(LinkID), LinkType, PChar(FromNodeID),
+  LinkID := FindUnusedID(ctLinks, LinkType);
+  FromNodeID := project.GetID(ctNodes, Node1);
+  ToNodeID := project.GetID(ctNodes, Node2);
+  if LinkType = ltValve then LinkType := EN_TCV;
+  Err := epanet2.ENaddlink(Pchar(LinkID), LinkType, PChar(FromNodeID),
     PChar(ToNodeID), LinkIndex);
   if Err = 0 then
   begin
     AddLinkVertices(LinkIndex);
-    if LinkType = lPipe then
+    if LinkType = ltPipe then
     begin
-      if Project.AutoLength then
-        Length := Project.FindLinkLength(LinkIndex)
+      if project.AutoLength then
+        Length := project.FindLinkLength(LinkIndex)
       else
-        Length := StrToFloatDef(Project.DefProps[4], 0.0);
-      ENsetpipedata(LinkIndex, Length, StrToFloatDef(Project.DefProps[5], 0.0),
-        StrToFloatDef(Project.DefProps[6], 0.0), 0.0);
+        Length := StrToFloatDef(project.DefProps[4], 0.0);
+      ENsetpipedata(LinkIndex, Length, StrToFloatDef(project.DefProps[5], 0.0),
+        StrToFloatDef(project.DefProps[6], 0.0), 0.0);
     end;
     MainForm.MapFrame.RedrawMap;
-    MainForm.ProjectFrame.SelectItem(cLinks, LinkIndex-1);
-    Project.HasChanged := True;
-    Project.UpdateResultsStatus;
+    MainForm.OverviewMapFrame.Redraw;
+    MainForm.ProjectFrame.SelectItem(ctLinks, LinkIndex-1);
+    project.HasChanged := true;
+    project.UpdateResultsStatus;
   end
-  else Utils.MsgDlg('Unable to add a new link.', mtError, [mbOK]);
+  else
+    utils.MsgDlg(rsCreateFail, rsNoAddLink, mtError, [mbOK]);
 end;
 
 procedure AddPattern;
 var
-  ID: string;
+  ID:  string;
   Err: Integer;
 begin
-  ID := FindUnusedID(cPatterns, 0);
-  Err := Epanet2.ENaddpattern(PChar(ID));
+  ID := FindUnusedID(ctPatterns, 0);
+  Err := epanet2.ENaddpattern(PChar(ID));
   if Err = 0 then with MainForm.ProjectFrame do
   begin
-    Project.HasChanged := True;
-    Project.UpdateResultsStatus;
+    project.HasChanged := true;
+    project.UpdateResultsStatus;
   end
   else
-    Utils.MsgDlg('Unable to add a new pattern.', mtError, [mbOK]);
+    utils.MsgDlg(rsCreateFail, rsNoAddPattern, mtError, [mbOK]);
 end;
 
 procedure AddCurve;
 var
-  ID: string;
+  ID:  string;
   Err: Integer;
 begin
-  ID := FindUnusedID(cCurves, 0);
-  Err := Epanet2.ENaddcurve(PChar(ID));
+  ID := FindUnusedID(ctCurves, 0);
+  Err := epanet2.ENaddcurve(PChar(ID));
   if Err = 0 then with MainForm.ProjectFrame do
   begin
-    Project.HasChanged := True;
-    Project.UpdateResultsStatus;
+    project.HasChanged := true;
+    project.UpdateResultsStatus;
   end
   else
-    Utils.MsgDlg('Unable to add a new curve.', mtError, [mbOK]);
+    utils.MsgDlg(rsCreateFail, rsNoAddCurve, mtError, [mbOK]);
 end;
 
-function GetLabelText(Location: TPoint): String;
+function GetLabelText(Location: TPoint): string;
 var
   LabelEditorForm: TLabelEditorForm;
 begin
@@ -178,6 +184,7 @@ begin
   try
     Left := Location.x;
     Top := Location.Y;
+    Width := 200;
     if ShowModal = mrOK then Result := Edit1.Text;
   finally
     Free;
@@ -186,7 +193,7 @@ end;
 
 procedure AddLabel(Location: TPoint; Xcoord: Double; Ycoord: Double);
 var
-  S: string;
+  S:        string;
   MapLabel: TMapLabel;
 begin
   S := GetLabelText(Location);
@@ -194,10 +201,10 @@ begin
   MapLabel := TMapLabel.Create;
   MapLabel.X := Xcoord;
   MapLabel.Y := Ycoord;
-  Project.MapLabels.AddObject(S, Maplabel);
+  project.MapLabels.AddObject(S, Maplabel);
   MainForm.MapFrame.RedrawMap;
-  MainForm.ProjectFrame.SelectItem(cLabels, Project.MapLabels.Count-1);
-  Project.HasChanged := True;
+  MainForm.ProjectFrame.SelectItem(ctLabels, project.MapLabels.Count-1);
+  project.HasChanged := true;
 end;
 
 procedure ImportShapeFile;
@@ -213,6 +220,16 @@ end;
 procedure ImportDxfFile;
 begin
   with TDxfImporterForm.Create(MainForm) do
+  try
+    ShowModal;
+  finally
+    Free;
+  end;
+end;
+
+procedure ImportCsvFile;
+begin
+  with TCsvImporterForm.Create(MainForm) do
   try
     ShowModal;
   finally

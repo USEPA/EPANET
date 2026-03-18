@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.1
  Module:       timeseriesrpt
  Description:  A frame that displays a time series report
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/13/2026
 =====================================================================}
 
 unit timeseriesrpt;
@@ -18,7 +16,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, ExtCtrls, Menus, Grids, Buttons,
   TAGraph, TASeries, TATransformations, TAIntervalSources, TAGUIConnectorBGRA,
-  TAChartUtils, LCLType, Types, Clipbrd, StrUtils;
+  TAChartUtils, LCLType, Types, Clipbrd, ComCtrls, StrUtils;
 
 const
   MaxSeries = 6;
@@ -27,17 +25,22 @@ type
 
   // Properties of a data series to be displayed
   TDataSeries = record
-    ObjType: Integer;    // Node or Link
+    ObjType:  Integer;   // Node, Link, or System
     ObjIndex: Integer;   // Node/Link index
     ObjParam: Integer;   // Parameter to be plotted
     PlotAxis: Integer;   // Plot on left (0) or right (1) axis
-    Title: string;       // Title used in legend
+    ObjID:    string;    // ID name of node/link
+    Title:    string;    // Title used for data series
+    Legend:   string;    // Legend text used for data series
   end;
 
   { TTimeSeriesFrame }
 
   TTimeSeriesFrame = class(TFrame)
-    Chart1: TChart;
+    PageControl1:      TPageControl;
+    ChartTabSheet:     TTabSheet;
+    TableTabSheet:     TTabSheet;
+    Chart1:            TChart;
     Chart1LineSeries1: TLineSeries;
     Chart1LineSeries2: TLineSeries;
     Chart1LineSeries3: TLineSeries;
@@ -45,44 +48,42 @@ type
     Chart1LineSeries5: TLineSeries;
     Chart1LineSeries6: TLineSeries;
     LeftChartAxisTransformationsAutoScaleAxisTransform: TAutoScaleAxisTransform;
-    RightChartAxisTransformations: TChartAxisTransformations;
-    LeftChartAxisTransformations: TChartAxisTransformations;
-    ChartGUIConnectorBGRA1: TChartGUIConnectorBGRA;
-    ChartPage: TPage;
-    DataGrid: TDrawGrid;
-    DateTimeIntervalChartSource1: TDateTimeIntervalChartSource;
-    ChartMenuItem: TMenuItem;
     RightChartAxisTransformationsAutoScaleAxisTransform: TAutoScaleAxisTransform;
-    SaveMenuItem: TMenuItem;
-    Separator1: TMenuItem;
-    Separator2: TMenuItem;
-    TableMenuItem: TMenuItem;
-    DataMenuItem: TMenuItem;
-    SettingsMenuItem: TMenuItem;
-    CopyMenuItem: TMenuItem;
-    Notebook1: TNotebook;
-    PopupMenu1: TPopupMenu;
-    TablePage: TPage;
-    procedure ChartMenuItemClick(Sender: TObject);
+    RightChartAxisTransformations: TChartAxisTransformations;
+    LeftChartAxisTransformations:  TChartAxisTransformations;
+    ChartGUIConnectorBGRA1:        TChartGUIConnectorBGRA;
+    DateTimeIntervalChartSource1:  TDateTimeIntervalChartSource;
+    Panel1:            TPanel;
+    DataGrid:          TDrawGrid;
+    PopupMenu1:        TPopupMenu;
+    DataMenuItem:      TMenuItem;
+    SettingsMenuItem:  TMenuItem;
+    Separator1:        TMenuItem;
+    CopyMenuItem:      TMenuItem;
+    SaveMenuItem:      TMenuItem;
+
     procedure CopyMenuItemClick(Sender: TObject);
     procedure DataGridDrawCell(Sender: TObject; aCol, aRow: Integer;
       aRect: TRect; aState: TGridDrawState);
     procedure DataGridPrepareCanvas(sender: TObject; aCol, aRow: Integer;
       aState: TGridDrawState);
     procedure DataMenuItemClick(Sender: TObject);
-    procedure FrameResize(Sender: TObject);
     procedure SaveMenuItemClick(Sender: TObject);
     procedure SettingsMenuItemClick(Sender: TObject);
-    procedure TableMenuItemClick(Sender: TObject);
+
   private
-    ShowingChart: Boolean;
+    ShowingChart:  Boolean;
     PlotTimeOfDay: Boolean;
-    Nseries: Integer;
-    DataSeries: array[0..MaxSeries-1] of TDataSeries;
+    Xstart:        TDateTime;
+    Xstep:         TDateTime;
+    Nseries:       Integer;
+    DataSeries:    array[0..MaxSeries-1] of TDataSeries;
+
     procedure PlotSeries(I: Integer);
-    procedure RefreshDataGrid;
-    function  GetDataGridValue(C: Integer; R: Integer): String;
+    function  GetDataGridValue(C: Integer; R: Integer): string;
     procedure GetDataGridContents(Slist: TStringList);
+    procedure FillLineSeries(aLineSeries: TLineSeries; ObjType: Integer;
+      ObjParam: Integer; ResultIndex: Integer);
     procedure SetupChart;
     procedure SaveChart;
     procedure SaveTable;
@@ -92,7 +93,9 @@ type
     procedure CloseReport;
     procedure ClearReport;
     procedure RefreshReport;
+    procedure RefreshGrid;
     procedure ShowPopupMenu;
+    procedure ShowTimeSeriesSelector;
     procedure SetDataSeries(NewDataSeries: array of TDataSeries;
       NewPlotTimeOfDay: Boolean; HasChanged: Boolean);
     function  GetObjStr(ObjType: Integer; Item: Integer): string;
@@ -105,7 +108,8 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, config, mapthemes, results, utils, chartoptions;
+  main, project, config, mapthemes, results, sysresults, utils, chartoptions,
+  reportviewer, resourcestrings;
 
 const
   SeriesColors: array[1..MaxSeries] of TColor =
@@ -117,39 +121,26 @@ procedure TTimeSeriesFrame.InitReport;
 var
   I, FontSize: Integer;
 begin
-
-  // Set alternate row color for the data grid
-  DataGrid.AlternateColor := config.AlternateColor;
-
-  // Initialize object being plotted in each data series
   for I := 0 to High(DataSeries) do
   begin
     DataSeries[I].ObjType := -1;
     DataSeries[I].PlotAxis := 0;
   end;
-
-  // Assign colors to each data series
   for I := 1 to MaxSeries do
   begin
     with FindComponent('Chart1LineSeries' + IntToStr(I)) as TLineSeries do
       SeriesColor := SeriesColors[I];
   end;
-
-  // Set font size to that used by project
-  FontSize := config.FontSize;
+  FontSize := Font.Size;
   for I := 0 to 2 do
     Chart1.AxisList[I].Title.LabelFont.Size := FontSize;
   Chart1.Legend.Font.Size := FontSize;
-
-  // Start with no data series specified
   Nseries := 0;
-  ShowingChart := True;
-  PlotTimeOfDay := False;
-  Notebook1.PageIndex := Notebook1.IndexOf(ChartPage);
-  Chart1.Visible := False;
-
-  // Bring up the Time Series Selector frame
-  DataMenuItemClick(Self);
+  ShowingChart := true;
+  PlotTimeOfDay := false;
+  PageControl1.ActivePageIndex := 0;
+  Chart1.Visible := true;
+  ShowTimeSeriesSelector;
 end;
 
 procedure TTimeSeriesFrame.CloseReport;
@@ -159,7 +150,15 @@ begin
   for I := 1 to MaxSeries do
     with FindComponent('Chart1LineSeries' + IntToStr(I)) as TLineSeries do
       Clear;
-  MainForm.TseriesSelectorFrame.Visible := False;
+  MainForm.TseriesSelectorFrame.Visible := false;
+end;
+
+procedure TTimeSeriesFrame.ShowTimeSeriesSelector;
+begin
+  ReportViewerForm.Hide;
+  MainForm.HideHintPanelFrames;
+  MainForm.TseriesSelectorFrame.Visible := true;
+  MainForm.TseriesSelectorFrame.Init(DataSeries, PlotTimeOfDay);
 end;
 
 procedure TTimeSeriesFrame.ShowPopupMenu;
@@ -172,20 +171,15 @@ end;
 
 procedure TTimeSeriesFrame.DataMenuItemClick(Sender: TObject);
 begin
-  MainForm.HideLeftPanelFrames;
-  MainForm.TseriesSelectorFrame.Visible := True;
-  MainForm.TseriesSelectorFrame.Init(DataSeries, PlotTimeOfDay);
-end;
-
-procedure TTimeSeriesFrame.FrameResize(Sender: TObject);
-begin
-  utils.ResizeControl(Chart1, ClientWidth, ClientHeight, 90, 50, 16, 0);
+  ShowTimeSeriesSelector;
 end;
 
 procedure TTimeSeriesFrame.SaveMenuItemClick(Sender: TObject);
 begin
-  if ShowingChart then SaveChart
-  else SaveTable;
+  if ShowingChart then
+    SaveChart
+  else
+    SaveTable;
 end;
 
 procedure TTimeSeriesFrame.SaveChart;
@@ -193,7 +187,7 @@ begin
   with MainForm.SaveDialog1 do
   begin
     FileName := '*.png';
-    Filter := 'Portable Network Graphic File|*.png';
+    Filter := rsPngFile;
     DefaultExt := '*.png';
     if Execute then Chart1.SaveToFile(TPortableNetworkGraphic, FileName);
   end;
@@ -205,7 +199,7 @@ var
 begin
   with MainForm.SaveDialog1 do begin
     FileName := '*.txt';
-    Filter := 'Text File|*.txt|All Files|*.*';
+    Filter := rsTextFile;
     DefaultExt := '*.txt';
     if Execute then
     begin
@@ -222,31 +216,37 @@ end;
 
 procedure TTimeSeriesFrame.SettingsMenuItemClick(Sender: TObject);
 var
+  I: Integer;
+  aSeries: TLineSeries;
   OptionsForm: TChartOptionsForm;
 begin
   OptionsForm := TChartOptionsForm.Create(self);
   with OptionsForm do
   try
-    SetOptions(Chart1);
+    SetOptions(Chart1, Nseries);
     ShowModal;
-    if ModalResult = mrOK then GetOptions(Chart1);
+    if ModalResult = mrOK then
+    begin
+      GetOptions(Chart1);
+      for I := 0 to Nseries-1 do
+      begin
+        aSeries := TLineSeries(Chart1.Series[I]);
+        DataSeries[I].Legend:= aSeries.Title;
+      end;
+    end;
   finally
     Free;
   end;
-end;
-
-procedure TTimeSeriesFrame.TableMenuItemClick(Sender: TObject);
-begin
-  ShowingChart := False;
-  Notebook1.PageIndex := Notebook1.IndexOf(TablePage);
 end;
 
 procedure TTimeSeriesFrame.CopyMenuItemClick(Sender: TObject);
 var
   Slist: TStringList;
 begin
-  if ShowingChart then Chart1.CopyToClipboardBitmap
-  else begin
+  if ShowingChart then
+    Chart1.CopyToClipboardBitmap
+  else
+  begin
     Slist := TStringList.Create;
     try
       GetDataGridContents(Slist);
@@ -259,10 +259,21 @@ end;
 
 procedure TTimeSeriesFrame.DataGridDrawCell(Sender: TObject; aCol,
   aRow: Integer; aRect: TRect; aState: TGridDrawState);
+var
+  S: string;
+  H: Integer;
+  N: Integer;
 begin
+  S := GetDataGridValue(aCol, aRow);
   with Sender as TDrawGrid do
-    Canvas.TextRect(aRect, aRect.Left+2, aRect.Top+2,
-      GetDataGridValue(aCol, aRow));
+  begin
+    if aRow = 0 then
+      N := 3
+    else
+      N := 1;
+    H := (aRect.Height - N * Canvas.TextHeight(S)) div 2;
+    Canvas.TextRect(aRect, aRect.Left+2, aRect.Top + H, S);
+  end;
 end;
 
 procedure TTimeSeriesFrame.DataGridPrepareCanvas(sender: TObject; aCol,
@@ -271,179 +282,178 @@ var
   MyTextStyle: TTextStyle;
 begin
   MyTextStyle := DataGrid.Canvas.TextStyle;
-  if aRow = 0 then
-  begin
-    MyTextStyle.SingleLine := false;
-    MyTextStyle.Alignment := taCenter;
-  end
-  else if aCol > 0 then
-    MyTextStyle.Alignment := taRightJustify;
+  MyTextStyle.Alignment := taCenter;
+  MyTextStyle.SingleLine := false;
   DataGrid.Canvas.TextStyle := MyTextStyle;
 end;
 
 procedure TTimeSeriesFrame.SetDataSeries(NewDataSeries: array of TDataSeries;
   NewPlotTimeOfDay: Boolean; HasChanged: Boolean);
-//
-// This procedure is called by the Time Series Selector frame to
-// transfer its selections (stored in NewDataSeries) to the
-// DataSeries array. HasChanged is TRUE if the NewDataSeries is not
-// the same as the current DataSeries.
-//
 var
   I: Integer;
 begin
-  // If the report has no data series assigned then close it
   if NewDataSeries[0].ObjType < 0 then
   begin
-    MainForm.ReportFrame.CloseReport;
+    CloseReport;
     exit;
   end;
-
-  // The current DataSeries array has not been changed
   if not HasChanged then
   begin
-    if not Chart1.Visible then MainForm.ReportFrame.CloseReport;
+    if not Chart1.Visible then CloseReport;
     exit;
   end;
-
-  // Transfer the NewDataSeries to this report's DataSeries
   for I := 0 to High(DataSeries) do
   begin
     DataSeries[I] := NewDataSeries[I];
-
-    // Add a legend title if none exists
-    with DataSeries[I] do
+    if DataSeries[I].ObjType >= 0 then with DataSeries[I] do
     begin
-      if Length(Title) = 0 then
-        Title := GetObjStr(ObjType, ObjIndex-1) + ' ' +
-          GetParamStr(ObjType, ObjParam);
+      if Length(Legend) = 0 then Legend := Title;
     end;
   end;
   PlotTimeOfDay := NewPlotTimeOfDay;
-
-  // Display the data series in chart or table form
   SetupChart;
-  if ShowingChart then
-    ChartmenuItemClick(Self)
-  else
-    TableMenuItemClick(Self);
   RefreshReport;
-end;
-
-procedure TTimeSeriesFrame.ChartMenuItemClick(Sender: TObject);
-begin
-  Notebook1.PageIndex := Notebook1.IndexOf(ChartPage);
-  ShowingChart := true;
 end;
 
 function TTimeSeriesFrame.GetObjStr(ObjType: Integer; Item: Integer): string;
 begin
-  Result := Project.GetObjectStr(ObjType, Item);
+  if ObjType = ctSystem then
+    Result := rsSystem
+  else
+    Result := project.GetObjectStr(ObjType, Item);
 end;
 
 function TTimeSeriesFrame.GetParamStr(ObjType: Integer; Param: Integer): string;
 begin
-  if ObjType = cNodes then
-    Result := MapThemes.NodeThemes[Param].Name
-  else
-    Result := MapThemes.LinkThemes[Param].Name;
+  Result := '';
+  case ObjType of
+    ctNodes:
+      Result := mapthemes.NodeThemes[Param].Name;
+    ctLinks:
+      Result := mapthemes.LinkThemes[Param].Name;
+    ctSystem:
+      Result := sysresults.SysParams[Param];
+  end;
 end;
 
 procedure TTimeSeriesFrame.PlotSeries(I: Integer);
 var
-  T: Integer;
-  Y: Double;
-  X: TDateTime;
-  Xstart, Xstep: TDateTime;
+  ResultIndex: Integer = 0;
+  aLineSeries: TLineSeries;
 begin
-  // Get a reference to the I-th line series being plotted
-  with FindComponent('Chart1LineSeries' + IntToStr(I+1)) as TLineSeries do
+  // Find order in which node/link object was written to results file
+  if DataSeries[I].ObjType < 0 then exit;
+  with DataSeries[I] do
   begin
-    // Clear and deactivate the series
-    Clear;
-    Active := false;
-
-    // Exit if the data series wasn't assigned an object to plot
-    if DataSeries[I].ObjType < 0 then exit;
-
-    // Save which Y-axis (left or right) the series is plotted on
-    if DataSeries[I].PlotAxis = 1 then
+    if ObjType <> ctSystem then
     begin
-      Chart1.AxisList[2].Visible := true;
-      AxisIndexY := 2;
-    end
-    else
-    begin
-      Chart1.AxisList[0].Visible := true;
-      AxisIndexY := 0;
+      ObjIndex:= project.GetItemIndex(ObjType, ObjID);
+      if ObjIndex > 0 then
+        ResultIndex := project.GetResultIndex(ObjType, ObjIndex);
+      if ResultIndex = 0 then exit;
     end;
-
-    // Convert the starting time and reporting interval to Date/Time values
-    // (decimal days)
-    Xstart := results.Rstart / 3600;
-    Xstep := results.Rstep / 3600;
-    if PlotTimeOfDay then
-    begin
-      Xstart := Xstart / 24;
-      Xstep := Xstep / 24;
-    end;
-
-    // Add the parameter value of the object assigned to the data series
-    // in each reporting time period
-    for T := 0 to results.Nperiods - 1 do
-    begin
-      X := Xstart + (T * Xstep);
-      with DataSeries[I] do
-      begin
-        if ObjType = cNodes then
-          Y := MapThemes.GetNodeValue(ObjIndex, ObjParam, T) else
-          Y := MapThemes.GetLinkValue(ObjIndex, ObjParam, T);
-      end;
-      if Y = MISSING then continue else AddXY(X, Y);
-    end;
-
-    // Adjustment for single period run
-    if results.Nperiods = 1 then
-    begin
-      X := Xstart + Xstep;
-      AddXY(X, Y);
-    end;
-    Chart1.BottomAxis.Marks.Visible := (results.Nperiods > 1);
-
-    // Add the data series title to the plot and activate it
-    Title := DataSeries[I].Title;
-    Active := true;
   end;
-  Chart1.Visible := True;
+
+  // Add results to the LineSeries
+  aLineSeries := FindComponent('Chart1LineSeries' + IntToStr(I+1)) as TLineSeries;
+  if aLineSeries = nil then exit;
+  ResultIndex := DataSeries[I].ObjIndex;
+  FillLineSeries(aLineSeries, DataSeries[I].ObjType, DataSeries[I].ObjParam,
+    ResultIndex);
+  if aLineSeries.Count = 0 then exit;
+
+  // Save which Y-axis (left or right) the series is plotted on
+  if DataSeries[I].PlotAxis = 1 then
+  begin
+    Chart1.AxisList[2].Visible := true;
+    aLineSeries.AxisIndexY := 2;
+  end
+  else
+  begin
+    Chart1.AxisList[0].Visible := true;
+    aLineSeries.AxisIndexY := 0;
+  end;
+  Chart1.BottomAxis.Marks.Visible := (results.Nperiods > 1);
+
+  // Add the data series title to the plot and activate it
+  aLineSeries.Title := DataSeries[I].Legend;
+  aLineSeries.Active := true;
+  Chart1.Visible := true;
 end;
 
-procedure TTimeSeriesFrame.RefreshDataGrid;
+procedure TTimeSeriesFrame.FillLineSeries(aLineSeries: TLineSeries;
+    ObjType: Integer; ObjParam: Integer; ResultIndex: Integer);
+var
+  T: Integer;
+  Y: Double = MISSING;
+  X: TDateTime;
+begin
+  for T := 0 to results.Nperiods - 1 do
+  begin
+    X := Xstart + (T * Xstep);
+    Y := MISSING;
+    case ObjType of
+      ctNodes:
+        Y := mapthemes.GetNodeValue(ResultIndex, ObjParam, T);
+      ctLinks:
+        Y := mapthemes.GetLinkValue(ResultIndex, ObjParam, T);
+      ctSystem:
+        Y := sysresults.GetSysValue(ObjParam, T);
+      else
+        Y := MISSING;
+    end;
+    if Y = MISSING then continue;
+    aLineSeries.AddXY(X, Y);
+  end;
+
+  // Adjustment for single period run
+  if (aLineSeries.Count > 0)
+  and (results.Nperiods = 1) then
+  begin
+    X := Xstart + Xstep;
+    aLineSeries.AddXY(X, Y);
+  end;
+end;
+
+procedure TTimeSeriesFrame.RefreshGrid;
 begin
   with DataGrid do
   begin
     Clear;
+    ColCount := Nseries + 2;
     RowCount := Results.Nperiods + 1;
-    RowHeights[0] := 2 * DataGrid.DefaultRowHeight;
+    RowHeights[0] := (2 * DefaultRowHeight) + (DefaultRowHeight div 2);
+    FixedColor := config.ThemeColor;
     Refresh;
   end;
 end;
 
-function TTimeSeriesFrame.GetDataGridValue(C: Integer; R: Integer): String;
-//
-// Gets time series value for column C, row R of the report table.
-//
+function TTimeSeriesFrame.GetDataGridValue(C: Integer; R: Integer): string;
 var
   I: Integer;
+  T: Integer;
 begin
   // I is 0-based index into DataSeries array
-  I := C - 1;
+  I := C - 2;
 
   // Column 0 displays time
   Result := '';
   if C = 0 then
   begin
-    if R = 0 then Result := 'Time' + LineEnding +'(hrs)'
-    else Result := Results.GetTimeStr(R-1);
+    if R = 0 then
+      Result := rsTimeHrs
+    else
+      Result := FloatToStrF((R - 1) * results.Rstep / 3600, ffFixed, 7, 2);
+  end
+  else if C = 1 then
+  begin
+    if R = 0 then
+      Result := rsTimeOfDay
+    else
+    begin
+      T := project.StartTime + (R-1) * results.Rstep + results.Rstart;
+      Result := utils.TimeOfDayStr(T);
+    end;
   end
 
   // Column C displays results for DataSeries[I]
@@ -451,11 +461,20 @@ begin
   begin
     // Column header
     if R = 0 then
+    begin
       Result := GetObjStr(DataSeries[I].ObjType, DataSeries[I].ObjIndex - 1) +
                 LineEnding +
-                GetParamStr(DataSeries[I].ObjType, DataSeries[I].ObjParam)
+                GetParamStr(DataSeries[I].ObjType, DataSeries[I].ObjParam) +
+                LineEnding;
+      if DataSeries[I].ObjType = ctSystem then
+        Result := Result + sysresults.GetSysParamUnits(DataSeries[I].ObjParam)
+      else
+        Result := Result +
+          mapthemes.GetThemeUnits(DataSeries[I].ObjType, DataSeries[I].ObjParam);
+    end
+
     // Time series value (previously stored in chart's LineSeries)
-    else with FindComponent('Chart1LineSeries' + IntToStr(C)) as TLineSeries do
+    else with FindComponent('Chart1LineSeries' + IntToStr(C-1)) as TLineSeries do
       Result := FloatToStrF(GetYValue(R-1), ffFixed, 7, config.DecimalPlaces) + '  ';
   end;
 end;
@@ -463,28 +482,41 @@ end;
 procedure TTimeSeriesFrame.SetupChart;
 var
   I: Integer;
-  UnitsStr: String;
-  LeftAxisTitle: String = '';
-  RightAxisTitle: String = '';
+  UnitsStr: string;
+  LeftAxisTitle: string = '';
+  RightAxisTitle: string = '';
 begin
-  // Examine each data series
+  for I := 0 to High(DataSeries) do
+  begin
+    with FindComponent('Chart1LineSeries' + IntToStr(I+1)) as TLineSeries do
+    begin
+      Clear;
+      Active := false;
+    end;
+  end;
+
   Nseries := 0;
   for I := 0 to High(DataSeries) do
   begin
-    // Break at first empty data series
     if DataSeries[I].ObjType < 0 then break;
     Inc(Nseries);
 
     // Get the series' parameter units
-    UnitsStr := mapthemes.GetThemeUnits(DataSeries[I].ObjType, DataSeries[I].ObjParam);
+    if DataSeries[I].ObjType = ctSystem then
+      UnitsStr := sysresults.GetSysParamUnits(DataSeries[I].ObjParam)
+    else
+      UnitsStr := mapthemes.GetThemeUnits(DataSeries[I].ObjType,
+        DataSeries[I].ObjParam);
 
     // If series uses a left axis
     if DataSeries[I].PlotAxis = 0 then
     begin
       if not AnsiContainsStr(LeftAxisTitle, UnitsStr) then
       begin
-        if Length(LeftAxisTitle) = 0 then LeftAxisTitle := UnitsStr
-        else LeftAxisTitle := LeftAxisTitle + ', ' + UnitsStr;
+        if Length(LeftAxisTitle) = 0 then
+          LeftAxisTitle := UnitsStr
+        else
+          LeftAxisTitle := LeftAxisTitle + ', ' + UnitsStr;
       end;
     end
 
@@ -493,13 +525,14 @@ begin
     begin
       if not AnsiContainsStr(RightAxisTitle, UnitsStr) then
       begin
-        if Length(RightAxisTitle) = 0 then RightAxisTitle := UnitsStr
-        else RightAxisTitle := RightAxisTitle + ', ' + UnitsStr;
+        if Length(RightAxisTitle) = 0 then
+          RightAxisTitle := UnitsStr
+        else
+          RightAxisTitle := RightAxisTitle + ', ' + UnitsStr;
       end;
     end;
   end;
 
-  // Assign titles to chart's axes
   Chart1.AxisList[0].Title.Caption := LeftAxisTitle;
   Chart1.AxisList[2].Title.Caption := RightAxisTitle;
   Chart1.Legend.Visible := true;
@@ -508,31 +541,38 @@ end;
 
 procedure TTimeSeriesFrame.GetDataGridContents(Slist: TStringList);
 var
-  I, R: Integer;
+  I: Integer;
+  R: Integer;
   S: string;
 begin
   // Add a title to the contents' stringlist
-  S := Project.GetTitle(0);
+  S := project.GetTitle(0);
   Slist.Add(S);
-  S := 'Time Series Report';
+  S := rsTimeSeriesRpt;
   Slist.Add(S);
   Slist.Add('');
 
-  // The DataGrid's header row contains text on two lines -- add each as
+  // The DataGrid's header row contains text on 3 lines -- add each as
   // a separate row to the contents' stringlist
   with DataGrid do
   begin
-    S := 'Time      ';
+    S := 'Elapsed   ' + #9 + 'Time      ';
     for I := 1 to Nseries do
       S := S + #9 +
         Format('%-20s',
           [GetObjStr(DataSeries[I-1].ObjType, DataSeries[I-1].ObjIndex - 1)]);
     Slist.Add(S);
-    S := '(hrs)     ';
+    S := 'Time      ' + #9 + 'of        ';
     for I := 1 to Nseries do
       S := S + #9 +
         Format('%-20s',
           [GetParamStr(DataSeries[I-1].ObjType, DataSeries[I-1].ObjParam)]);
+    Slist.Add(S);
+    S := '(hrs)      ' + #9 + 'Day       ';
+    for I := 1 to Nseries do
+      S := S + #9 +
+        Format('%-20s',
+          [mapthemes.GetThemeUnits(DataSeries[I-1].ObjType, DataSeries[I-1].ObjParam)]);
     Slist.Add(S);
   end;
 
@@ -540,40 +580,47 @@ begin
   for R := 1 to DataGrid.RowCount - 1 do
   begin
     S := Format('%-10s', [GetDataGridValue(0,R)]);
-    for I := 1 to Nseries do
+    S := S + #9 + Format('%-10s', [GetDataGridValue(1,R)]);
+    for I := 2 to DataGrid.ColCount-1 do
       S := S + #9 + Format('%-20s', [GetDataGridValue(I, R)]);
     Slist.Add(S);
   end;
 end;
 
 procedure TTimeSeriesFrame.ClearReport;
+var
+  I: Integer;
 begin
+  for I := 1 to MaxSeries do
+    with FindComponent('Chart1LineSeries' + IntToStr(I)) as TLineSeries do
+      Clear;
 end;
 
 procedure TTimeSeriesFrame.RefreshReport;
 var
   I: Integer;
 begin
-
-  // Setup bottom axis
+  ClearReport;
+  Xstart := results.Rstart / 3600;
+  Xstep := results.Rstep / 3600;
   if PlotTimeOfDay then
   begin
     Chart1.BottomAxis.Marks.Style := smsLabel;
     Chart1.BottomAxis.Marks.Source := DateTimeIntervalChartSource1;
-    Chart1.BottomAxis.Title.Visible := False;
-  end else
+    Chart1.BottomAxis.Title.Visible := false;
+    Xstart := (Xstart + project.StartTime / 3600) / 24;
+    Xstep := Xstep / 24;
+  end
+  else
   begin
     Chart1.BottomAxis.Marks.Style := smsValue;
     Chart1.BottomAxis.Marks.Source := nil;
-    Chart1.BottomAxis.Title.Visible := True;
+    Chart1.BottomAxis.Title.Visible := true;
   end;
   Chart1.AxisList[2].Visible := false;
 
-  // Plot each data series
-  for I := 0 to High(DataSeries) do PlotSeries(I);
-
-  // Add data series values to the DataGrid control
-  RefreshDataGrid;
+  for I := 0 to Nseries-1 do PlotSeries(I);
+  RefreshGrid;
 end;
 
 end.

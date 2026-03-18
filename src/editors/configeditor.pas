@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       configeditor
  Description:  a dialog form that edits program preferences
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit configeditor;
@@ -18,10 +16,6 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin,
   lclIntf, ExtCtrls;
-
-const
-  GrayTheme: Integer = $F1F1F1; {F8F8F8;}
-  BlueTheme: Integer = $FDEEE3;
 
 type
 
@@ -36,8 +30,6 @@ type
     CheckBox6: TCheckBox;
     CheckBox7: TCheckBox;
     CheckBox8: TCheckBox;
-    CheckBox9: TCheckBox;
-    CheckBox10: TCheckBox;
     Label1: TLabel;
     OkBtn: TButton;
     CancelBtn: TButton;
@@ -66,8 +58,8 @@ uses
 
 procedure TConfigForm.FormCreate(Sender: TObject);
 begin
-  Color := Config.ThemeColor;
-  Font.Size := Config.FontSize;
+  Color := config.FormColor;
+  Font.Size := config.FontSize;
 end;
 
 procedure TConfigForm.SetPreferences;
@@ -76,35 +68,32 @@ begin
   CheckBox2.Checked := config.MapHinting;
   CheckBox3.Checked := config.ConfirmDeletions;
   CheckBox4.Checked := config.ShowWelcomePage;
-  CheckBox5.Checked := config.ShowSpeedBar;
-  CheckBox6.Checked := SameText(config.IconFamily, 'Office');
+  CheckBox5.Checked := config.OpenLastFile;
+  CheckBox6.Checked := config.BackupFile;
   CheckBox7.Checked := config.ThemeColor = BlueTheme;
-  CheckBox8.Checked := config.OpenLastFile;
-  CheckBox9.Checked := config.BackupFile;
   SpinEdit1.Value := config.DecimalPlaces;
 end;
 
 procedure TConfigForm.HelpBtnClick(Sender: TObject);
 begin
-  MainForm.ShowHelp('#program_preferences');
+  MainForm.ViewHelp('#program_preferences');
 end;
 
 procedure TConfigForm.GetPreferences(var ClearFileList: Boolean);
 begin
-  config.MapHiliter := CheckBox1.Checked;
-  config.MapHinting := CheckBox2.Checked;
+  config.MapHiliter       := CheckBox1.Checked;
+  config.MapHinting       := CheckBox2.Checked;
   config.ConfirmDeletions := CheckBox3.Checked;
-  config.ShowWelcomePage := CheckBox4.Checked;
-  config.ShowSpeedBar := CheckBox5.Checked;
-  if CheckBox6.Checked then
-    config.IconFamily := 'Office'
-  else config.IconFamily := 'Material';
-  if CheckBox7.Checked then config.ThemeColor := BlueTheme
-  else config.ThemeColor := GrayTheme;
-  config.OpenLastFile := CheckBox8.Checked;
-  config.BackupFile := CheckBox9.Checked;
+  config.ShowWelcomePage  := CheckBox4.Checked;
+  config.OpenLastFile     := CheckBox5.Checked;
+  config.BackupFile       := CheckBox6.Checked;
+  if CheckBox7.Checked then
+    config.ThemeColor := BlueTheme
+  else
+    config.ThemeColor := GrayTheme;
+  FormColor := ThemeColor;
   config.DecimalPlaces := SpinEdit1.Value;
-  ClearFileList := CheckBox10.Checked;
+  ClearFileList := CheckBox8.Checked;
 end;
 
 end.

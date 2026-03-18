@@ -5,28 +5,27 @@ object PumpingRptFrame: TPumpingRptFrame
   Width = 479
   ClientHeight = 240
   ClientWidth = 479
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
-  DesignLeft = 812
-  DesignTop = 494
+  DesignLeft = 1392
+  DesignTop = 458
   object Panel1: TPanel
-    Left = 0
-    Height = 26
-    Top = 214
-    Width = 479
+    Left = 8
+    Height = 35
+    Top = 205
+    Width = 471
     Align = alBottom
     Alignment = taLeftJustify
+    BorderSpacing.Left = 8
     BevelOuter = bvNone
     Caption = '  Total Cost: 0   Demand Charge: 0'
-    ClientHeight = 26
-    ClientWidth = 479
-    Color = 15918295
-    ParentBackground = False
-    ParentColor = False
+    ClientHeight = 35
+    ClientWidth = 471
     TabOrder = 0
     object Label1: TLabel
-      Left = 295
+      Left = 279
       Height = 15
-      Top = 4
+      Top = 10
       Width = 165
       Alignment = taRightJustify
       Anchors = [akTop, akRight]
@@ -34,33 +33,49 @@ object PumpingRptFrame: TPumpingRptFrame
       ParentColor = False
     end
   end
-  object StringGrid1: TStringGrid
+  object Panel2: TPanel
     Left = 0
-    Height = 214
+    Height = 205
     Top = 0
     Width = 479
     Align = alClient
-    AlternateColor = clDefault
-    AutoFillColumns = True
-    ColCount = 7
-    ColumnClickSorts = True
-    DefaultRowHeight = 24
-    FixedColor = clGradientInactiveCaption
-    Flat = True
-    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goThumbTracking, goSmoothScroll, goFixedColSizing]
+    BevelOuter = bvNone
+    ClientHeight = 205
+    ClientWidth = 479
     TabOrder = 1
-    TitleFont.Height = -12
-    OnCompareCells = StringGrid1CompareCells
-    OnPrepareCanvas = StringGrid1PrepareCanvas
-    ColWidths = (
-      64
-      69
-      69
-      69
-      69
-      69
-      69
-    )
+    object StringGrid1: TStringGrid
+      Left = 16
+      Height = 189
+      Top = 16
+      Width = 447
+      Align = alClient
+      AlternateColor = clNone
+      AutoFillColumns = True
+      BorderSpacing.Left = 16
+      BorderSpacing.Top = 16
+      BorderSpacing.Right = 16
+      ColCount = 7
+      ColumnClickSorts = True
+      DefaultRowHeight = 28
+      FixedColor = clDefault
+      Flat = True
+      GridLineColor = cl3DLight
+      Options = [goFixedVertLine, goFixedHorzLine, goHorzLine, goThumbTracking, goSmoothScroll, goFixedColSizing]
+      TabOrder = 0
+      TitleFont.Height = -12
+      OnClick = StringGrid1Click
+      OnCompareCells = StringGrid1CompareCells
+      OnPrepareCanvas = StringGrid1PrepareCanvas
+      ColWidths = (
+        69
+        63
+        63
+        63
+        63
+        63
+        62
+      )
+    end
   end
   object ExportMenu: TPopupMenu
     Images = mainForm.PopupImageList

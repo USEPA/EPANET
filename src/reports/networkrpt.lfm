@@ -3,11 +3,13 @@ object NetworkRptFrame: TNetworkRptFrame
   Height = 394
   Top = 0
   Width = 605
+  Align = alClient
   ClientHeight = 394
   ClientWidth = 605
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
-  DesignLeft = 1166
-  DesignTop = 294
+  DesignLeft = 1211
+  DesignTop = 14
   object Notebook1: TNotebook
     Left = 0
     Height = 394
@@ -17,39 +19,70 @@ object NetworkRptFrame: TNetworkRptFrame
     Align = alClient
     TabOrder = 0
     object TablePage: TPage
-      object DrawGrid1: TDrawGrid
+      object BottomPanel: TPanel
+        Left = 12
+        Height = 35
+        Top = 359
+        Width = 593
+        Align = alBottom
+        Alignment = taLeftJustify
+        BorderSpacing.Left = 12
+        BevelOuter = bvNone
+        Caption = ' Filters (None)'
+        ClientHeight = 35
+        ClientWidth = 593
+        TabOrder = 0
+        object Label1: TLabel
+          Left = 400
+          Height = 15
+          Top = 10
+          Width = 165
+          Alignment = taRightJustify
+          Anchors = [akTop, akRight]
+          Caption = 'Click a column header to sort it'
+          ParentColor = False
+        end
+      end
+      object Panel1: TPanel
         Left = 0
         Height = 359
         Top = 0
         Width = 605
         Align = alClient
-        AlternateColor = clDefault
-        ColCount = 1
-        ColumnClickSorts = True
-        DefaultColWidth = 112
-        DefaultRowHeight = 24
-        ExtendedSelect = False
-        FixedColor = 15918295
-        Flat = True
-        Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goColSizing, goRowSelect, goThumbTracking, goSmoothScroll, goHeaderPushedLook, goFixedColSizing]
-        RowCount = 1
-        TabOrder = 0
-        OnDrawCell = DrawGrid1DrawCell
-        OnHeaderClick = DrawGrid1HeaderClick
-        OnPrepareCanvas = DrawGrid1PrepareCanvas
-      end
-      object BottomPanel: TPanel
-        Left = 0
-        Height = 35
-        Top = 359
-        Width = 605
-        Align = alBottom
-        Alignment = taLeftJustify
-        Caption = ' Filters (None)  Click a column header to sort it.'
-        Color = 15918295
-        ParentBackground = False
-        ParentColor = False
+        BevelOuter = bvNone
+        ClientHeight = 359
+        ClientWidth = 605
         TabOrder = 1
+        object DataGrid: TDrawGrid
+          Left = 16
+          Height = 343
+          Top = 16
+          Width = 573
+          Align = alClient
+          AlternateColor = clNone
+          AutoFillColumns = True
+          BorderSpacing.Left = 16
+          BorderSpacing.Top = 16
+          BorderSpacing.Right = 16
+          ColCount = 1
+          ColumnClickSorts = True
+          DefaultColWidth = 112
+          DefaultRowHeight = 24
+          ExtendedSelect = False
+          FixedColor = clWindow
+          Flat = True
+          GridLineColor = cl3DLight
+          Options = [goFixedVertLine, goFixedHorzLine, goHorzLine, goColSizing, goThumbTracking, goSmoothScroll, goHeaderPushedLook, goFixedColSizing]
+          RowCount = 1
+          TabOrder = 0
+          OnClick = DataGridClick
+          OnDrawCell = DataGridDrawCell
+          OnHeaderClick = DataGridHeaderClick
+          OnPrepareCanvas = DataGridPrepareCanvas
+          ColWidths = (
+            605
+          )
+        end
       end
     end
     object FilterPage: TPage
@@ -98,8 +131,8 @@ object NetworkRptFrame: TNetworkRptFrame
         Top = 16
         Width = 382
         Caption = 'Select Rows With:'
-        ClientHeight = 148
-        ClientWidth = 378
+        ClientHeight = 168
+        ClientWidth = 382
         ParentBackground = False
         TabOrder = 1
         object ParamComboBox: TComboBox

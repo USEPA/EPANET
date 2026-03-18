@@ -1,13 +1,10 @@
 {====================================================================
- Project:      LEPANET
- Version:      0.1
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       simulator
- Description:  a form that runs a simulation of the pipe network
-               while displaying its progress
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  a form that runs a simulation for the project
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit simulator;
@@ -17,7 +14,8 @@ unit simulator;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Math;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
+  FileUtil;
 
 {$I ..\timetype.txt} //Defines C's 'long' data type for different platforms
 
@@ -26,13 +24,15 @@ type
   { TSimulationForm }
 
   TSimulationForm = class(TForm)
-    CancelBtn: TButton;
-    OkBtn: TButton;
-    StatusLabel: TLabel;
+    CancelBtn:   TButton;
+    OkBtn:       TButton;
+    StatusLabel: TPanel;
+
     procedure CancelBtnClick(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure OkBtnClick(Sender: TObject);
+
   private
     ErrorCode: Integer;
     procedure RunSimulation;
@@ -41,10 +41,13 @@ type
     procedure RunHydraulics;
     procedure RunQuality;
     procedure RunMsxQuality;
-    procedure SaveDemandDeficit(var F: TFileStream);
-    procedure SaveEmitterFlow(var F: TFileStream);
-    procedure SaveNodeLeakage(var F: TFileStream);
-    procedure SavePipeLeakage(var F: TFileStream);
+    procedure SaveDemandDeficit(var F: TFileStream; var Deficits: array of Single;
+      var Demands: array of Single);
+    procedure SaveEmitterFlow(var F: TFileStream; var Flows: array of Single);
+    procedure SaveNodeLeakage(var F: TFileStream; var Leakages: array of Single);
+    procedure SavePipeLeakage(var F: TFileStream; var Leakages: array of Single);
+    procedure SaveLinkEnergy(var F: TFileStream; var Energy: array of Single);
+
   public
 
   end;
@@ -57,74 +60,42 @@ implementation
 {$R *.lfm}
 
 uses
-  project, results, energycalc, epanet2, epanetmsx;
-
-const
-  TXT_STATUS_NONE = 'Unable to run simulator.';
-  TXT_STATUS_WRONGVERSION = 'Run was unsuccessful. Wrong version of simulator.';
-  TXT_STATUS_FAILED = 'Run was unsuccessful due to system error.';
-  TXT_STATUS_ERROR = 'Run was unsuccessful. See Status Report for reasons.';
-  TXT_STATUS_WARNING =
-    'Warning messages were generated. See Status Report for details.';
-  TXT_STATUS_SUCCESS = 'Run was successful.';
-  TXT_STATUS_SHUTDOWN =
-   'Simulator performed an illegal operation and was shut down.';
-  TXT_STATUS_CANCELLED = 'Run cancelled by user.';
-  TXT_OPENING     = 'Opening EPANET solver ...';
-  TXT_SOLVING_HYD = 'Solving hydraulics at hour ';
-  TXT_SOLVING_WQ  = 'Solving quality at hour ';
+  project, config, results, energycalc, epanet2, epanetmsx, resourcestrings;
 
 { TSimulationForm }
 
 procedure TSimulationForm.FormCreate(Sender: TObject);
-//
-//  Form's OnCreate handler
-//
 begin
   // Position the OK button on top of the Cancel button
-  OkBtn.Visible := False;
+   Font.Size := config.FontSize;
+  OkBtn.Visible := false;
   OkBtn.Top := CancelBtn.Top;
   OkBtn.Left := CancelBtn.Left;
 end;
 
 procedure TSimulationForm.CancelBtnClick(Sender: TObject);
-//
-//  OnClick handler for the Cancel button
-//
 begin
-  RunStatus := rsCancelled;
+  SimStatus := ssCancelled;
 end;
 
 procedure TSimulationForm.FormActivate(Sender: TObject);
-//
-//  Runs the simulation when the form is activated
-//
 begin
   RunSimulation;
-
-  // Hide the Cancel button and show the OK button
-  CancelBtn.Visible := False;
-  OkBtn.Visible := True;
+  CancelBtn.Visible := false;
+  OkBtn.Visible := true;
   OkBtn.SetFocus;
 end;
 
 procedure TSimulationForm.OkBtnClick(Sender: TObject);
-//
-//  OnClick handler for the OK button
-//
 begin
   Hide;
 end;
 
 procedure TSimulationForm.RunSimulation;
-//
-//  Executes a simulation of the pipe network
-//
 begin
   // Prepare the project for a new simulation
-  Project.RunStatus := rsNone;
-  Project.HasResults := false;
-  Project.MsxFlag := Length(Project.MsxInpFile) > 0;
+  project.SimStatus := ssNone;
+  project.HasResults := false;
   results.CloseOutFile;
   ErrorCode := 0;
   ENclearreport;
@@ -138,84 +109,113 @@ begin
 end;
 
 procedure TSimulationForm.ShowRunStatus;
-//
-//  Display the final status of the simulation run
-//
 var
-  MsxRunStatus: TRunStatus;
+  MsxSimStatus: TSimStatus;
 begin
   // Open EPANET's binary output file to retrieve simulation status
-  if not (RunStatus in [rsCancelled, rsShutdown]) then
+  if not (SimStatus in [ssCancelled, ssShutdown]) then
   begin
-    if ErrorCode > 0 then RunStatus := rsError
-    else if not FileExists(Project.OutFile) then RunStatus := rsFailed
-    else RunStatus := results.OpenOutFile(Project.OutFile);
+    if ErrorCode > 0 then
+      SimStatus := ssError
+    else if not FileExists(project.OutFile) then
+      SimStatus := ssFailed
+    else
+      SimStatus := results.OpenOutFile(project.OutFile);
 
     // Open the MSX output file
-    if MsxFlag and (RunStatus in [rsSuccess, rsWarning]) then
+    if MsxFlag
+    and (SimStatus in [ssSuccess, ssWarning]) then
     begin
-      if not FileExists(Project.MsxOutFile) then RunStatus := rsFailed
+      if not FileExists(project.MsxOutFile) then
+      begin
+        SimStatus := ssFailed;
+      end
       else
       begin
-        MsxRunStatus := results.OpenMsxOutFile(Project.MsxOutFile);
-        if MsxRunStatus <> rsSuccess then RunStatus := MsxRunStatus;
+        MsxSimStatus := results.OpenMsxOutFile(project.MsxOutFile);
+        if MsxSimStatus <> ssSuccess then
+        begin
+          SimStatus := MsxSimStatus;
+        end;
       end;
     end;
   end;
 
   // Display run status message
-  case RunStatus of
-    rsShutdown:     StatusLabel.Caption := TXT_STATUS_SHUTDOWN;
-    rsNone:         StatusLabel.Caption := TXT_STATUS_NONE;
-    rsWrongVersion: StatusLabel.Caption := TXT_STATUS_WRONGVERSION;
-    rsFailed:       StatusLabel.Caption := TXT_STATUS_FAILED;
-    rsError:        StatusLabel.Caption := TXT_STATUS_ERROR;
-    rsWarning:      StatusLabel.Caption := TXT_STATUS_WARNING;
-    rsSuccess:      StatusLabel.Caption := TXT_STATUS_SUCCESS;
-    rsCancelled:    StatusLabel.Caption := TXT_STATUS_CANCELLED;
+  case SimStatus of
+    ssShutdown:
+      StatusLabel.Caption := rsStatusShutdown;
+    ssNone:
+      StatusLabel.Caption := rsStatusNone;
+    ssWrongVersion:
+      StatusLabel.Caption := rsStatusVersion;
+    ssFailed:
+      StatusLabel.Caption := rsStatusFailed;
+    ssError:
+      StatusLabel.Caption := rsStatusError;
+    ssWarning:
+      StatusLabel.Caption := rsStatusWarning;
+    ssSuccess:
+      StatusLabel.Caption := rsStatusSuccess;
+    ssCancelled:
+      StatusLabel.Caption := rsStatusCanceled;
   end;
-  if RunStatus in [rsSuccess, rsWarning] then Project.HasResults := true;
+  if SimStatus in [ssSuccess, ssWarning] then
+    project.HasResults := true;
 end;
 
 procedure TSimulationForm.RunSolver;
-//
-//  Runs the hydraulic & water quality simulation
-//
 var
-  FPUExceptionMask: TFPUExceptionMask;
+  StartTime: TimeType = 0;
 begin
-  // Save and re-set FPU exception mask
-  FPUExceptionMask := GetExceptionMask;
-  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow,
-    exUnderflow, exPrecision]);
+  // Retrieve and save starting time of day in sec
+  epanet2.ENgettimeparam(EN_STARTTIME, StartTime);
+  project.StartTime := StartTime;
 
   // Run EPANET's hydraulics solver
   ErrorCode := 0;
-  if ErrorCode = 0 then RunHydraulics;
+  RunHydraulics;
 
   // Run EPANET's water quality solver
-  if (ErrorCode < 100) and (RunStatus <> rsCancelled) then
+  if (ErrorCode < 100)
+  and (SimStatus <> ssCancelled) then
   begin
-    if MsxFlag then RunMsxQuality else RunQuality;
+    if MsxFlag then
+      RunMsxQuality
+    else
+      RunQuality;
   end;
-
-  // Restore FPU exception mask
-  SetExceptionMask(FPUExceptionMask);
 end;
 
 procedure TSimulationForm.RunHydraulics;
 var
-  t, tstep: TimeType;
-  rptStep: TimeType;
-  F: TFileStream;
+  t:         TimeType;
+  tstep:     TimeType;
+  rptStep:   TimeType;
+  F:         TFileStream;
+  N:         Integer;
+  NodeFlows: array of Single;
+  LinkArray: array of Single;
+  DmndDefs:  array of Single;
 begin
-  // Create a demand deficit file (since the current EPANET solver
-  // doesn't record demand deficit in its output file)
-  F := TFileStream.Create(project.DmndFile, fmCreate);
+  // Create arrays to hold node flows and pipe leakage flow
+  epanet2.ENgetcount(EN_NODECOUNT, N);
+  setLength(NodeFlows,N);
+  setLength(DmndDefs, N);
+  epanet2.ENgetcount(EN_LINKCOUNT, N);
+  setLength(LinkArray, N);
+
+  // Create a file stream to save demand deficit, emitter flow,
+  // and leakage flows since the current EPANET solver doesn't
+  // save these in its output file
+  F := TFileStream.Create(project.OutFile2, fmCreate);
   try
-    // Open EPANET's hydraulics solver
-    epanet2.ENgettimeparam(EN_REPORTSTEP, rptStep);
+    // Initialize energy calculation
     energycalc.Start;
+    results.SetInitStorage;
+
+   // Open EPANET's hydraulics solver
+    epanet2.ENgettimeparam(EN_REPORTSTEP, rptStep);
     ErrorCode := epanet2.ENopenH();
     if ErrorCode = 0 then
     begin
@@ -229,29 +229,34 @@ begin
         // Update display of simulation progress
         if t mod 3600 = 0 then
         begin
-          StatusLabel.Caption := TXT_SOLVING_HYD + IntToStr(t div 3600);
+          StatusLabel.Caption := rsSolvingHydraul + ' ' + IntToStr(t div 3600);
           Application.ProcessMessages;
         end;
 
         // Solve hydraulics at current time
         ErrorCode := epanet2.ENrunH(t);
 
-        // Save demand deficit & leakage to file if at a reporting time
+        // If at a reporting time, save results that the EPANET solver
+        // doesn't include in its binary output file
         if t mod rptStep = 0 then
         begin
-          SaveDemandDeficit(F);
-          SaveEmitterFlow(F);
-          SaveNodeLeakage(F);
-          SavePipeLeakage(F);
+          SaveDemandDeficit(F, NodeFlows, DmndDefs);
+          SaveEmitterFlow(F, NodeFlows);
+          SaveNodeLeakage(F, NodeFlows);
+          SavePipeLeakage(F, LinkArray);
+          SaveLinkEnergy(F, LinkArray);
         end;
 
         // Determine size of next hydraulic time step
         tstep := 0;
-        if ErrorCode <= 100 then ErrorCode := epanet2.ENnextH(tstep);
+        if ErrorCode <= 100 then
+          ErrorCode := epanet2.ENnextH(tstep);
 
         // Update system energy usage over the time step
         energycalc.Update(Integer(t), Integer(tstep));
-      until (tstep = 0) or (ErrorCode > 100) or (RunStatus = rsCancelled);
+      until (tstep = 0)
+      or (ErrorCode > 100)
+      or (SimStatus = ssCancelled);
     end;
 
     // Close hydraulics solver
@@ -259,7 +264,9 @@ begin
     epanet2.ENcloseH();
 
     // Save hydraulic results for use by MSX solver
-    if (ErrorCode <= 100) and (RunStatus <> rsCancelled) and MsxFlag then
+    if (ErrorCode <= 100)
+    and (SimStatus <> ssCancelled)
+    and MsxFlag then
     begin
       epanet2.ENsaveH;
       epanet2.ENsavehydfile(PAnsiChar(MsxHydFile));
@@ -273,11 +280,9 @@ begin
 end;
 
 procedure TSimulationForm.RunQuality;
-//
-//  Runs EPANET's single species water quality solver
-//
 var
-  t, tstep: TimeType;
+  t:     TimeType;
+  tstep: TimeType;
 begin
   // Open quality solver
   ErrorCode := epanet2.ENopenQ();
@@ -292,13 +297,16 @@ begin
     repeat
       if t mod 3600 = 0 then
       begin
-        StatusLabel.Caption := TXT_SOLVING_WQ + IntToStr(t div 3600);
+        StatusLabel.Caption := rsSolvingQuality + ' ' + IntToStr(t div 3600);
         Application.ProcessMessages;
       end;
       ErrorCode := epanet2.ENrunQ(t);
       tstep := 0;
-      if ErrorCode <= 100 then ErrorCode := epanet2.ENnextQ(tstep);
-    until (tstep = 0) or (ErrorCode > 100) or (RunStatus = rsCancelled);
+      if ErrorCode <= 100 then
+        ErrorCode := epanet2.ENnextQ(tstep);
+    until (tstep = 0)
+    or (ErrorCode > 100)
+    or (SimStatus = ssCancelled);
   end;
 
   // Close WQ solver
@@ -306,116 +314,123 @@ begin
 end;
 
 procedure TSimulationForm.RunMsxQuality;
-//
-//  Runs EPANET-MSX's multi-species water quality solver
-//
 var
-  t, tleft: Double;
-  OldHour, NewHour: Int64;
+  t:       Double = 0;
+  tleft:   Double = 0;
+  OldHour: Int64;
+  NewHour: Int64;
 begin
   // Open MSX solver and make saved hydraulic results available to it
   ErrorCode := epanetmsx.MSXopen(PAnsiChar(MsxInpFile));
-  if ErrorCode = 0 then ErrorCode := epanetmsx.MSXusehydfile(PAnsiChar(MsxHydFile));
+  if ErrorCode = 0 then
+    ErrorCode := epanetmsx.MSXusehydfile(PAnsiChar(MsxHydFile));
   if ErrorCode = 0 then
   begin
-    // Initialize WQ solver
+    // Initialize Water Quality solver
     ErrorCode := epanetmsx.MSXinit(1);
     t := 0;
     tleft := 0;
     OldHour := -1;
     NewHour := 0;
 
-    // Solve WQ in each period
+    // Solve Water Quality in each period
     repeat
       if NewHour > OldHour then
       begin
         OldHour := NewHour;
-        StatusLabel.Caption := TXT_SOLVING_WQ + IntToStr(NewHour);
-       Application.ProcessMessages;
+        StatusLabel.Caption := rsSolvingQuality + ' ' + IntToStr(NewHour);
+        Application.ProcessMessages;
       end;
       ErrorCode := epanetmsx.MSXstep(t, tleft);
       NewHour := Trunc(t/3600);
-    until (tleft = 0) or (ErrorCode > 0) or (RunStatus = rsCancelled);
+    until (tleft = 0)
+    or (ErrorCode > 0)
+    or (SimStatus = ssCancelled);
   end;
 
-  // Save WQ results and close MSX solver
-  if (tleft = 0) and (ErrorCode = 0) and (RunStatus <> rsCancelled) then
+  // Save Water Quality results and close MSX solver
+  if (tleft = 0)
+  and (ErrorCode = 0)
+  and (SimStatus <> ssCancelled) then
   begin
     ErrorCode := epanetmsx.MSXsaveoutfile(PAnsiChar(MsxOutFile));
   end;
   epanetmsx.MSXclose;
 end;
 
-procedure TSimulationForm.SaveDemandDeficit(var F: TFileStream);
-//
-//  Saves current demand deficit at each network node to file
-//
+procedure TSimulationForm.SaveDemandDeficit(var F: TFileStream;
+  var Deficits: array of Single; var Demands: array of Single);
 var
-  Deficits: array of Single;
-  Demands: array of Single;
-  I, N, ByteCount: Integer;
+  I:          Integer;
+  N:          Integer = 0;
+  ByteCount: Integer;
 begin
   if F = nil then exit;
   ENgetcount(EN_NODECOUNT, N);
-  SetLength(Deficits, N);
-  SetLength(Demands, N);
   ByteCount := N * sizeof(Single);
   epanet2.ENgetnodevalues(EN_DEMANDDEFICIT, Deficits);
   epanet2.ENgetnodevalues(EN_FULLDEMAND, Demands);
   for I := 0 to N-1 do
   begin
-    if Demands[I] > 0.0 then
-      Deficits[I] := Deficits[I] / Demands[I] * 100.;
+    if (Demands[I] > 0.0)
+    and (Deficits[I] > 0.0) then
+      Deficits[I] := Deficits[I] / Demands[I] * 100.
+    else
+      Deficits[I] := 0.0;
   end;
   F.Write(Deficits[0], ByteCount);
 end;
 
-procedure TSimulationForm.SaveEmitterFlow(var F: TFileStream);
-//
-//  Saves current leakage flow from each network node to file
-//
+procedure TSimulationForm.SaveEmitterFlow(var F: TFileStream;
+  var Flows: array of Single);
 var
-  Flows: array of Single;
-  N, ByteCount: Integer;
+  N:         Integer = 0;
+  ByteCount: Integer;
 begin
   if F = nil then exit;
   epanet2.ENgetcount(EN_NODECOUNT, N);
-  SetLength(Flows, N);
   ByteCount := N * sizeof(Single);
   epanet2.ENgetnodevalues(EN_EMITTERFLOW, Flows);
   F.Write(Flows[0], ByteCount);
 end;
 
-procedure TSimulationForm.SaveNodeLeakage(var F: TFileStream);
-//
-//  Saves current leakage flow from each network node to file
-//
+procedure TSimulationForm.SaveNodeLeakage(var F: TFileStream;
+  var Leakages: array of Single);
 var
-  Leakages: array of Single;
-  N, ByteCount: Integer;
+  N:         Integer = 0;
+  ByteCount: Integer;
 begin
   if F = nil then exit;
   epanet2.ENgetcount(EN_NODECOUNT, N);
-  SetLength(Leakages, N);
   ByteCount := N * sizeof(Single);
   epanet2.ENgetnodevalues(EN_LEAKAGEFLOW, Leakages);
   F.Write(Leakages[0], ByteCount);
 end;
 
-procedure TSimulationForm.SavePipeLeakage(var F: TFileStream);
-//
-//  Saves current leakage flow from each network link to file
-//
+procedure TSimulationForm.SavePipeLeakage(var F: TFileStream;
+  var Leakages: array of Single);
 var
-  Leakages: array of Single;
-  N, ByteCount: Integer;
+  N:         Integer = 0;
+  ByteCount: Integer;
 begin
   if F = nil then exit;
   epanet2.ENgetcount(EN_LINKCOUNT, N);
-  SetLength(Leakages, N);
   ByteCount := N * sizeof(Single);
   epanet2.ENgetlinkvalues(EN_LINK_LEAKAGE, Leakages);
   F.Write(Leakages[0], ByteCount);
+end;
+
+procedure TSimulationForm.SaveLinkEnergy(var F: TFileStream;
+  var Energy: array of Single);
+var
+  N:         Integer = 0;
+  ByteCount: Integer;
+begin
+  if F = nil then exit;
+  epanet2.ENgetcount(EN_LINKCOUNT, N);
+  ByteCount := N * sizeof(Single);
+  epanet2.ENgetlinkvalues(EN_ENERGY, Energy);
+  F.Write(Energy[0], ByteCount);
 end;
 
 end.

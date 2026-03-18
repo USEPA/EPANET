@@ -1,23 +1,24 @@
 object MsxEditorForm: TMsxEditorForm
   Left = 810
-  Height = 455
+  Height = 510
   Top = 343
   Width = 900
   BorderStyle = bsDialog
-  Caption = 'Multi-Species Water Quality Editor'
-  ClientHeight = 455
+  Caption = 'MSX Editor'
+  ClientHeight = 510
   ClientWidth = 900
+  ParentFont = True
+  Position = poMainFormCenter
+  LCLVersion = '4.4.0.0'
   OnCreate = FormCreate
   OnShow = FormShow
-  Position = poDesktopCenter
-  LCLVersion = '3.2.0.0'
   object MenuPanel: TPanel
     Left = 0
-    Height = 407
+    Height = 462
     Top = 0
     Width = 120
     Align = alLeft
-    ClientHeight = 407
+    ClientHeight = 462
     ClientWidth = 120
     TabOrder = 0
     object Panel2: TPanel
@@ -29,28 +30,26 @@ object MsxEditorForm: TMsxEditorForm
       Alignment = taLeftJustify
       BevelOuter = bvNone
       Caption = '   Data Category'
-      Font.Style = [fsBold]
-      ParentFont = False
       TabOrder = 1
     end
     object SectionListBox: TListBox
       Left = 1
-      Height = 379
+      Height = 434
       Top = 27
       Width = 118
       Align = alClient
       ExtendedSelect = False
       Items.Strings = (
-        'Introduction'
-        'Options'
-        'Species'
-        'Pipe Reactions'
-        'Tank Reactions'
-        'Reaction Terms'
-        'Coefficients'
-        'Parameters'
-        'Initial Quality'
-        'Sources'
+        ' Introduction'
+        ' Options'
+        ' Species'
+        ' Pipe Reactions'
+        ' Tank Reactions'
+        ' Reaction Terms'
+        ' Coefficients'
+        ' Parameters'
+        ' Initial Quality'
+        ' Sources'
       )
       ItemHeight = 28
       ParentColor = True
@@ -62,26 +61,26 @@ object MsxEditorForm: TMsxEditorForm
   object ButtonPanel: TPanel
     Left = 0
     Height = 48
-    Top = 407
+    Top = 462
     Width = 900
     Align = alBottom
     ClientHeight = 48
     ClientWidth = 900
     TabOrder = 2
-    object OkBtn: TButton
-      Left = 728
+    object CloseBtn: TButton
+      Left = 687
       Height = 25
-      Top = 10
-      Width = 72
+      Top = 12
+      Width = 112
       Anchors = [akTop, akLeft, akRight]
-      Caption = 'OK'
+      Caption = 'Save and Close'
       TabOrder = 4
-      OnClick = OkBtnClick
+      OnClick = CloseBtnClick
     end
     object CancelBtn: TButton
-      Left = 812
+      Left = 810
       Height = 25
-      Top = 10
+      Top = 12
       Width = 72
       Anchors = [akTop, akLeft, akRight]
       Cancel = True
@@ -90,27 +89,27 @@ object MsxEditorForm: TMsxEditorForm
       OnClick = CancelBtnClick
     end
     object LoadBtn: TButton
-      Left = 449
+      Left = 521
       Height = 25
-      Top = 10
+      Top = 12
       Width = 72
       Caption = 'Load'
       TabOrder = 2
       OnClick = LoadBtnClick
     end
-    object SaveBtn: TButton
-      Left = 533
+    object SaveAsBtn: TButton
+      Left = 604
       Height = 25
-      Top = 10
+      Top = 12
       Width = 72
-      Caption = 'Save'
+      Caption = 'Save As'
       TabOrder = 3
-      OnClick = SaveBtnClick
+      OnClick = SaveAsBtnClick
     end
     object ClearBtn: TButton
-      Left = 365
+      Left = 438
       Height = 25
-      Top = 10
+      Top = 12
       Width = 72
       Caption = 'Clear'
       TabOrder = 1
@@ -119,7 +118,7 @@ object MsxEditorForm: TMsxEditorForm
     object HelpBtn: TButton
       Left = 16
       Height = 25
-      Top = 10
+      Top = 12
       Width = 72
       Caption = 'Help'
       TabOrder = 0
@@ -128,16 +127,16 @@ object MsxEditorForm: TMsxEditorForm
   end
   object MainPanel: TPanel
     Left = 120
-    Height = 407
+    Height = 462
     Top = 0
     Width = 600
     Align = alClient
-    ClientHeight = 407
+    ClientHeight = 462
     ClientWidth = 600
     TabOrder = 1
     object Notebook1: TNotebook
       Left = 1
-      Height = 315
+      Height = 370
       Top = 45
       Width = 598
       PageIndex = 0
@@ -152,11 +151,7 @@ object MsxEditorForm: TMsxEditorForm
           Align = alTop
           BevelOuter = bvNone
           Caption = 'Multi-Species Water Quality Editor'
-          Font.CharSet = ANSI_CHARSET
           Font.Height = -19
-          Font.Pitch = fpVariable
-          Font.Quality = fqDraft
-          Font.Style = [fsBold]
           ParentBackground = False
           ParentColor = False
           ParentFont = False
@@ -170,8 +165,8 @@ object MsxEditorForm: TMsxEditorForm
           Align = alTop
           BevelOuter = bvNone
           BorderStyle = bsSingle
-          ClientHeight = 164
-          ClientWidth = 594
+          ClientHeight = 168
+          ClientWidth = 598
           Color = clWindow
           ParentBackground = False
           ParentColor = False
@@ -742,22 +737,22 @@ object MsxEditorForm: TMsxEditorForm
         end
         object IntroPanel: TPanel
           Left = 0
-          Height = 99
+          Height = 154
           Top = 216
           Width = 598
           Align = alClient
           BevelOuter = bvNone
-          ClientHeight = 99
+          ClientHeight = 154
           ClientWidth = 598
           ParentBackground = False
           TabOrder = 2
           object HtmlViewer1a: THtmlViewer
             Left = 0
-            Height = 99
+            Height = 154
             Top = 0
             Width = 365
             BorderStyle = htNone
-            DefBackground = 16579836
+            DefBackground = 14745599
             DefFontName = 'Segoe UI'
             DefFontSize = 9
             HistoryMaxCount = 0
@@ -772,11 +767,11 @@ object MsxEditorForm: TMsxEditorForm
           end
           object HtmlViewer1b: THtmlViewer
             Left = 365
-            Height = 99
+            Height = 154
             Top = 0
             Width = 233
             BorderStyle = htNone
-            DefBackground = 16579836
+            DefBackground = 14745599
             DefFontName = ' Segoe UI'
             DefFontSize = 9
             HistoryMaxCount = 0
@@ -807,63 +802,71 @@ object MsxEditorForm: TMsxEditorForm
           ParentColor = False
           TabOrder = 0
           object Label1: TLabel
-            Left = 24
+            Left = 18
             Height = 15
             Top = 86
             Width = 122
+            Alignment = taRightJustify
             Caption = 'Pipe Surface Area Units'
           end
           object Label2: TLabel
-            Left = 24
+            Left = 38
             Height = 15
             Top = 133
             Width = 102
+            Alignment = taRightJustify
             Caption = 'Reaction Rate Units'
           end
           object Label3: TLabel
-            Left = 24
+            Left = 37
             Height = 15
-            Top = 179
+            Top = 176
             Width = 103
+            Alignment = taRightJustify
             Caption = 'Integration Method'
           end
           object Label4: TLabel
-            Left = 24
+            Left = 30
             Height = 15
-            Top = 225
+            Top = 222
             Width = 110
+            Alignment = taRightJustify
             Caption = 'Integration Coupling'
           end
           object Label5: TLabel
-            Left = 296
+            Left = 316
             Height = 15
             Top = 86
-            Width = 80
+            Width = 81
+            Alignment = taRightJustify
             Caption = 'Time Step (sec)'
           end
           object Label6: TLabel
             Left = 296
             Height = 15
-            Top = 132
-            Width = 100
+            Top = 133
+            Width = 101
+            Alignment = taRightJustify
             Caption = 'Absolute Tolerance'
           end
           object Label7: TLabel
-            Left = 296
+            Left = 302
             Height = 15
-            Top = 179
-            Width = 94
+            Top = 176
+            Width = 95
+            Alignment = taRightJustify
             Caption = 'Relative Tolerance'
           end
           object Label8: TLabel
-            Left = 24
+            Left = 91
             Height = 15
-            Top = 275
+            Top = 271
             Width = 49
+            Alignment = taRightJustify
             Caption = 'Compiler'
           end
           object ComboBox1: TComboBox
-            Left = 178
+            Left = 165
             Height = 23
             Top = 81
             Width = 80
@@ -880,7 +883,7 @@ object MsxEditorForm: TMsxEditorForm
             OnChange = TitleEditChange
           end
           object ComboBox2: TComboBox
-            Left = 178
+            Left = 165
             Height = 23
             Top = 127
             Width = 80
@@ -898,7 +901,7 @@ object MsxEditorForm: TMsxEditorForm
             OnChange = TitleEditChange
           end
           object ComboBox3: TComboBox
-            Left = 178
+            Left = 165
             Height = 23
             Top = 171
             Width = 80
@@ -915,7 +918,7 @@ object MsxEditorForm: TMsxEditorForm
             OnChange = TitleEditChange
           end
           object ComboBox4: TComboBox
-            Left = 178
+            Left = 165
             Height = 23
             Top = 219
             Width = 80
@@ -937,6 +940,7 @@ object MsxEditorForm: TMsxEditorForm
             Width = 80
             Alignment = taLeftJustify
             MaxLength = 0
+            SpinButtonWidth = 17
             TabOrder = 7
             OnChange = TitleEditChange
             ArrowKeys = False
@@ -953,6 +957,7 @@ object MsxEditorForm: TMsxEditorForm
             Width = 80
             Alignment = taLeftJustify
             MaxLength = 0
+            SpinButtonWidth = 17
             TabOrder = 8
             OnChange = TitleEditChange
             ArrowKeys = False
@@ -963,7 +968,7 @@ object MsxEditorForm: TMsxEditorForm
             Value = 0.01
           end
           object ComboBox5: TComboBox
-            Left = 178
+            Left = 165
             Height = 23
             Top = 267
             Width = 80
@@ -983,7 +988,7 @@ object MsxEditorForm: TMsxEditorForm
             Left = 24
             Height = 15
             Top = 22
-            Width = 71
+            Width = 72
             Caption = 'Optional Title'
           end
           object TitleEdit: TEdit
@@ -995,17 +1000,19 @@ object MsxEditorForm: TMsxEditorForm
             OnChange = TitleEditChange
           end
           object Label10: TLabel
-            Left = 296
+            Left = 315
             Height = 15
-            Top = 225
-            Width = 81
+            Top = 222
+            Width = 80
+            Alignment = taRightJustify
             Caption = 'Max. Segments'
           end
           object Label11: TLabel
-            Left = 296
+            Left = 313
             Height = 15
-            Top = 274
-            Width = 83
+            Top = 271
+            Width = 82
+            Alignment = taRightJustify
             Caption = 'Max. Peclet No.'
           end
           object FloatSpinEditEx1: TFloatSpinEditEx
@@ -1015,6 +1022,7 @@ object MsxEditorForm: TMsxEditorForm
             Width = 80
             Alignment = taLeftJustify
             MaxLength = 0
+            SpinButtonWidth = 17
             TabOrder = 6
             OnChange = TitleEditChange
             ArrowKeys = False
@@ -1031,6 +1039,7 @@ object MsxEditorForm: TMsxEditorForm
             Width = 80
             Alignment = taLeftJustify
             MaxLength = 0
+            SpinButtonWidth = 17
             TabOrder = 9
             OnChange = TitleEditChange
             ArrowKeys = False
@@ -1047,6 +1056,7 @@ object MsxEditorForm: TMsxEditorForm
             Width = 80
             Alignment = taLeftJustify
             MaxLength = 0
+            SpinButtonWidth = 17
             TabOrder = 10
             OnChange = TitleEditChange
             ArrowKeys = False
@@ -1061,7 +1071,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid1: TStringGrid
           Tag = 1
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1073,13 +1083,11 @@ object MsxEditorForm: TMsxEditorForm
                 'BULK'
                 'WALL'
               )
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Type'
               Width = 64
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Name'
               Width = 91
             end          
@@ -1093,19 +1101,16 @@ object MsxEditorForm: TMsxEditorForm
                 'Hours'
               )
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Units'
               Width = 64
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Atol'
               Width = 64
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Rtol'
               Width = 64
             end          
@@ -1115,25 +1120,18 @@ object MsxEditorForm: TMsxEditorForm
               Title.Font.Name = 'Segoe UI'
               Title.Font.Pitch = fpFixed
               Title.Font.Quality = fqDraft
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Diffus'
               Width = 64
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 367
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           TabAdvance = aaRight
           TabOrder = 0
@@ -1155,7 +1153,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid2: TStringGrid
           Tag = 4
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1168,35 +1166,26 @@ object MsxEditorForm: TMsxEditorForm
                 'EQUIL'
                 'FORMULA'
               )
-              Title.Font.Style = [fsBold]
-              Title.Caption = 'Reaction Type'
-              Width = 101
+              Title.Caption = 'Type'
+              Width = 82
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Specie'
               Width = 91
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Reaction Expression'
               Width = 310
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 276
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           ScrollBars = ssNone
           TabAdvance = aaRight
@@ -1204,7 +1193,7 @@ object MsxEditorForm: TMsxEditorForm
           OnColRowInserted = StringGrid1ColRowInserted
           OnSelectEditor = StringGrid2SelectEditor
           ColWidths = (
-            101
+            82
             91
             310
             276
@@ -1215,7 +1204,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid3: TStringGrid
           Tag = 5
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1228,35 +1217,26 @@ object MsxEditorForm: TMsxEditorForm
                 'EQUIL'
                 'FORMULA'
               )
-              Title.Font.Style = [fsBold]
-              Title.Caption = 'Reaction Type'
-              Width = 101
+              Title.Caption = 'Type'
+              Width = 82
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Bulk Specie'
-              Width = 91
+              Width = 100
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Reaction Expression'
               Width = 310
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 276
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goAlwaysShowEditor, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           ScrollBars = ssNone
           TabAdvance = aaRight
@@ -1264,8 +1244,8 @@ object MsxEditorForm: TMsxEditorForm
           OnColRowInserted = StringGrid1ColRowInserted
           OnSelectEditor = StringGrid3SelectEditor
           ColWidths = (
-            101
-            91
+            82
+            100
             310
             276
           )
@@ -1275,7 +1255,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid4: TStringGrid
           Tag = 3
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1283,30 +1263,22 @@ object MsxEditorForm: TMsxEditorForm
           ColCount = 3
           Columns = <          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Term Name'
               Width = 101
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Formula'
               Width = 338
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 339
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           ScrollBars = ssNone
           TabAdvance = aaRight
@@ -1323,7 +1295,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid5: TStringGrid
           Tag = 2
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1335,37 +1307,28 @@ object MsxEditorForm: TMsxEditorForm
                 'CONSTANT'
                 'PARAMETER'
               )
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Type'
               Width = 111
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Name'
               Width = 101
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Value'
               Width = 91
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 475
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           TabAdvance = aaRight
           TabOrder = 0
@@ -1383,7 +1346,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid6: TStringGrid
           Tag = 8
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1394,50 +1357,40 @@ object MsxEditorForm: TMsxEditorForm
                 'PIPE'
                 'TANK'
               )
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Object Type'
-              Width = 91
+              Width = 99
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Object ID'
               Width = 101
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Parameter'
               Width = 101
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Value'
               Width = 91
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 394
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           TabAdvance = aaRight
           TabOrder = 0
           OnColRowInserted = StringGrid1ColRowInserted
           OnSelectEditor = StringGrid6SelectEditor
           ColWidths = (
-            91
+            99
             101
             101
             91
@@ -1449,7 +1402,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid7: TStringGrid
           Tag = 7
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1461,51 +1414,41 @@ object MsxEditorForm: TMsxEditorForm
                 'NODE'
                 'LINK'
               )
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Location Type'
-              Width = 101
+              Width = 115
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Node/Link ID'
-              Width = 101
+              Width = 107
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Specie'
               Width = 91
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Concen.'
               Width = 91
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 394
             end>
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           TabAdvance = aaRight
           TabOrder = 0
           OnColRowInserted = StringGrid1ColRowInserted
           OnSelectEditor = StringGrid7SelectEditor
           ColWidths = (
-            101
-            101
+            115
+            107
             91
             91
             394
@@ -1516,7 +1459,7 @@ object MsxEditorForm: TMsxEditorForm
         object StringGrid8: TStringGrid
           Tag = 6
           Left = 0
-          Height = 315
+          Height = 370
           Top = 0
           Width = 598
           Align = alClient
@@ -1530,51 +1473,40 @@ object MsxEditorForm: TMsxEditorForm
                 'FLOWPACED'
                 'SETPOINT'
               )
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Source Type'
               Width = 101
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Node ID'
               Width = 91
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Specie'
               Width = 91
             end          
             item
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Strength'
-              Width = 64
+              Width = 70
             end          
             item
               ButtonStyle = cbsButton
               Title.Alignment = taCenter
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Pattern'
               Width = 91
             end          
             item
-              Title.Font.Style = [fsBold]
               Title.Caption = 'Comment'
               Width = 340
             end>
           DefaultColWidth = 62
           DefaultRowHeight = 25
-          FixedColor = clGradientInactiveCaption
+          FixedColor = clDefault
           FixedCols = 0
           Flat = True
-          Font.CharSet = ANSI_CHARSET
-          Font.Name = 'Courier New'
-          Font.Pitch = fpFixed
-          Font.Quality = fqDraft
           Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goEditing, goAutoAddRows, goSmoothScroll, goAutoAddRowsSkipContentCheck]
-          ParentFont = False
           RowCount = 2
           TabAdvance = aaRight
           TabOrder = 0
@@ -1587,7 +1519,7 @@ object MsxEditorForm: TMsxEditorForm
     object InstructPanel: TPanel
       Left = 1
       Height = 46
-      Top = 360
+      Top = 415
       Width = 598
       Align = alBottom
       Alignment = taLeftJustify
@@ -1629,9 +1561,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Cut'
         ImageIndex = 0
-        OnClick = CutBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = CutBtnClick
       end
       object CopyBtn: TToolButton
         Left = 43
@@ -1639,9 +1571,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Copy'
         ImageIndex = 1
-        OnClick = CopyBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = CopyBtnClick
       end
       object PasteBtn: TToolButton
         Left = 85
@@ -1649,9 +1581,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Paste'
         ImageIndex = 2
-        OnClick = PasteBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = PasteBtnClick
       end
       object InsertBtn: TToolButton
         Left = 127
@@ -1659,9 +1591,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Insert'
         ImageIndex = 3
-        OnClick = InsertBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = InsertBtnClick
       end
       object RemoveBtn: TToolButton
         Left = 169
@@ -1669,9 +1601,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Remove'
         ImageIndex = 4
-        OnClick = RemoveBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = RemoveBtnClick
       end
       object MoveUpBtn: TToolButton
         Left = 211
@@ -1679,9 +1611,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Move Up'
         ImageIndex = 5
-        OnClick = MoveUpBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = MoveUpBtnClick
       end
       object MoveDnBtn: TToolButton
         Left = 253
@@ -1689,9 +1621,9 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'Move Down'
         ImageIndex = 6
-        OnClick = MoveDnBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = MoveDnBtnClick
       end
       object SymbolsBtn: TToolButton
         Left = 295
@@ -1699,24 +1631,24 @@ object MsxEditorForm: TMsxEditorForm
         Top = 2
         Caption = 'SymbolsBtn'
         ImageIndex = 7
-        OnClick = SymbolsBtnClick
         ParentShowHint = False
         ShowHint = True
+        OnClick = SymbolsBtnClick
       end
     end
   end
   object SymbolsPanel: TPanel
     Left = 720
-    Height = 407
+    Height = 462
     Top = 0
     Width = 180
     Align = alRight
-    ClientHeight = 407
+    ClientHeight = 462
     ClientWidth = 180
     TabOrder = 3
     object HtmlViewer2: THtmlViewer
       Left = 1
-      Height = 405
+      Height = 460
       Top = 1
       Width = 178
       BorderStyle = htFocused
@@ -1737,15 +1669,15 @@ object MsxEditorForm: TMsxEditorForm
   object OpenDialog1: TOpenDialog
     Title = 'Load Multi-Species Data from an Existing File'
     Options = [ofFileMustExist, ofEnableSizing, ofViewDetail]
-    Left = 271
-    Top = 301
+    Left = 264
+    Top = 368
   end
   object ImageList1: TImageList
     Height = 165
     Scaled = True
     Width = 365
-    Left = 349
-    Top = 303
+    Left = 344
+    Top = 368
     Bitmap = {
       4C7A010000006D010000A5000000276000000000000078DAEC7D095CD655D67F
       F3D6B44DB69AA5A159D96235BDD5FCA7669CA6A9D7D746DF726C9A46C7CA3473
@@ -2521,15 +2453,15 @@ object MsxEditorForm: TMsxEditorForm
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofEnableSizing, ofViewDetail]
-    Left = 436
-    Top = 303
+    Left = 416
+    Top = 368
   end
   object MaterialImageList: TImageList
     Height = 20
     Scaled = True
     Width = 20
-    Left = 527
-    Top = 301
+    Left = 504
+    Top = 368
     Bitmap = {
       4C7A0900000014000000140000004E0500000000000078DAED9B5B6C164514C7
       173F4AB5052948A9D42296924830D6108D51A0A689260814311042C255832FA2
@@ -2691,8 +2623,8 @@ object MsxEditorForm: TMsxEditorForm
     Height = 20
     Scaled = True
     Width = 20
-    Left = 631
-    Top = 301
+    Left = 600
+    Top = 368
     Bitmap = {
       4C7A090000001400000014000000EB0900000000000078DAED997B5CCCE91EC7
       BDF61F39CB8B1CB1E2A05E2F5BB9ACB384B38E226C5676A59CF61C0A2525A2AC

@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       mapquery
  Description:  a frame that locates network objects that meet a
-               specified criterion.
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+               specific criterion.
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 unit mapquery;
 
@@ -17,34 +15,33 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, Buttons, ExtCtrls, Graphics,
-  LCLtype, Dialogs, Math;
+  LCLtype, Dialogs;
 
 type
 
   { TMapQueryFrame }
 
   TMapQueryFrame = class(TFrame)
-    FindBtn: TBitBtn;
-    CloseBtn: TSpeedButton;
-    FindCbx: TComboBox;
-    ParamCbx: TComboBox;
+    CloseBtn:     TSpeedButton;
+    FindCbx:      TComboBox;
+    ParamCbx:     TComboBox;
     ConditionCbx: TComboBox;
-    ValueEdit: TEdit;
-    Label1: TLabel;
-    Label2: TLabel;
-    ResultPanel: TPanel;
-    TopPanel: TPanel;
+    ValueEdit:    TEdit;
+    Label1:       TLabel;
+    Label2:       TLabel;
+    ResultPanel:  TPanel;
+    TopPanel:     TPanel;
+
     procedure CloseBtnClick(Sender: TObject);
     procedure FindCbxChange(Sender: TObject);
     procedure ValueEditChange(Sender: TObject);
     procedure ValueEditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure ResultPanelClick(Sender: TObject);
-    procedure FindBtnClick(Sender: TObject);
-    procedure TargetChange(Sender: TObject);
+
   private
-    Target: Single;
+    Target:        Single;
     FilteredCount: Integer;
     function IsFiltered(const Value: Single): Boolean;
+
   public
     NodeQuery: Boolean;
     LinkQuery: Boolean;
@@ -61,7 +58,7 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, mapframe, mapthemes, config, utils;
+  main, project, mapframe, mapthemes, config, utils, resourcestrings;
 
 { TMapQueryFrame }
 
@@ -69,32 +66,33 @@ procedure TMapQueryFrame.Init;
 begin
   FindCbx.ItemIndex := 0;
   ParamCbx.ItemIndex := 0;
-  NodeQuery := True;
-  LinkQuery := False;
+  NodeQuery := true;
+  LinkQuery := false;
 end;
 
 procedure TMapQueryFrame.Show;
 begin
+  Color := config.CreamTheme;
   TopPanel.Color := config.ThemeColor;
   ValueEdit.Text := '';
   ResultPanel.Caption := '';
-  NodeQuery := False;
-  LinkQuery := False;
+  NodeQuery := false;
+  LinkQuery := false;
   FindCbxChange(self);
-  Visible := True;
+  Visible := true;
 end;
 
 procedure TMapQueryFrame.Hide;
 begin
- Visible := False;
+  Visible := false;
 end;
 
 procedure TMapQueryFrame.CloseBtnClick(Sender: TObject);
 begin
- Hide;
- NodeQuery := False;
- LinkQuery := False;
- MainForm.MapFrame.RedrawMap;
+  Hide;
+  NodeQuery := false;
+  LinkQuery := false;
+  MainForm.MapFrame.RedrawMap;
 end;
 
 procedure TMapQueryFrame.FindCbxChange(Sender: TObject);
@@ -105,14 +103,14 @@ begin
   ParamCbx.Clear;
   if FindCbx.ItemIndex = 0 then
   begin
-    NodeQuery := True;
-    LinkQuery := False;
+    NodeQuery := true;
+    LinkQuery := false;
     MainViewCombo := MainForm.MainMenuFrame.ViewNodeCombo;
   end
   else
   begin
-    NodeQuery := False;
-    LinkQuery := True;
+    NodeQuery := false;
+    LinkQuery := true;
     MainViewCombo := MainForm.MainMenuFrame.ViewLinkCombo;
   end;
   N := MainViewCombo.Items.Count;
@@ -131,50 +129,43 @@ end;
 procedure TMapQueryFrame.ValueEditKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  if Key = VK_RETURN then FindBtnClick(Sender);
-end;
-
-procedure TMapQueryFrame.ResultPanelClick(Sender: TObject);
-begin
-
-end;
-
-procedure TMapQueryFrame.FindBtnClick(Sender: TObject);
-begin
-  Target := 0;
-  if Length(ValueEdit.Text) = 0 then exit;
-  if not Utils.Str2Float(ValueEdit.Text, Target) then
-  begin
-    MsgDlg('"' + ValueEdit.Text + '" is not a valid number.', mtError, [mbOK], MainForm);
-    exit;
-  end;
-  UpdateResults;
-end;
-
-procedure TMapQueryFrame.TargetChange(Sender: TObject);
-begin
-  ResultPanel.Caption := '';
+  if Key = VK_RETURN then UpdateResults;
 end;
 
 procedure TMapQueryFrame.UpdateResults;
+var
+  I: Integer;
 begin
   ResultPanel.Caption := '';
-  if not Utils.Str2Float(ValueEdit.Text, Target) then exit;
+  Target := 0;
+  if Length(ValueEdit.Text) = 0 then exit;
+  if not utils.Str2Float(ValueEdit.Text, Target) then
+  begin
+    MsgDlg(rsInvalidData, ValueEdit.Text + rsInvalidNumber, mtError, [mbOK], MainForm);
+    exit;
+  end;
+
   FilteredCount := 0;
   if NodeQuery then
   begin
     MainForm.MainMenuFrame.ViewNodeCombo.ItemIndex := ParamCbx.ItemIndex + 1;
-    MapThemes.ChangeTheme(MainForm.LegendTreeView, cNodes,
+    mapthemes.ChangeTheme(MainForm.LegendTreeView, ctNodes,
       MainForm.MainMenuFrame.ViewNodeCombo.ItemIndex);
+    for I := 1 to project.GetItemCount(project.ctNodes) do
+      GetFilteredNodeColor(I);
   end;
+
   if LinkQuery then
   begin
     MainForm.MainMenuFrame.ViewLinkCombo.ItemIndex := ParamCbx.ItemIndex + 1;
-    MapThemes.ChangeTheme(MainForm.LegendTreeView, cLinks,
+    mapthemes.ChangeTheme(MainForm.LegendTreeView, ctLinks,
       MainForm.MainMenuFrame.ViewLinkCombo.ItemIndex);
+    for I := 1 to project.GetItemCount(project.ctLinks) do
+      GetFilteredLinkColor(I);
   end;
+  ResultPanel.Caption := IntToStr(FilteredCount) + ' ' + rsItemsFound;
+  FilteredCount := 0;
   MainForm.MapFrame.RedrawMap;
-  ResultPanel.Caption := IntToStr(FilteredCount) + ' items found.';
 end;
 
 function TMapQueryFrame.GetFilteredNodeColor(const NodeIndex: Integer): TColor;
@@ -183,7 +174,7 @@ var
   Theme: Integer;
   TimePeriod: Integer;
 begin
-  Result := clGray;
+  Result := clNone;
   if not NodeQuery then exit;
   Theme := ParamCbx.ItemIndex + 1;
   TimePeriod := mapthemes.TimePeriod;
@@ -216,11 +207,11 @@ end;
 
 function TMapQueryFrame.IsFiltered(const Value: Single):Boolean;
 begin
-  Result := False;
+  Result := false;
   case ConditionCbx.ItemIndex of
-  0: if Value < Target then Result := True;
-  1: if Value = Target then Result := True;
-  2: if Value > Target then Result := True;
+  0: if Value < Target then Result := true;
+  1: if Value = Target then Result := true;
+  2: if Value > Target then Result := true;
   end;
 end;
 

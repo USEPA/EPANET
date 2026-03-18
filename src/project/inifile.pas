@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       inifile
  Description:  saves and retrieves project settings to an inifile
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
-=====================================================================}
+ Last Updated: 03/07/2026
+====================================================================}
 
 unit inifile;
 
@@ -16,10 +14,9 @@ unit inifile;
 interface
 
 uses
-  Classes, SysUtils, IniFiles, Dialogs, StrUtils, Graphics, Forms;
+  Classes, SysUtils, IniFiles, Dialogs, StrUtils, Graphics, Forms,
+  FileUtil;
 
-procedure SaveFormPosition(FileName: string);
-procedure ReadFormPosition(FileName: string);
 procedure ReadAppDefaults(FileName: string);
 procedure WriteAppDefaults(FileName: string);
 procedure ReadProjectDefaults(FileName: string; var WebMapSource: Integer);
@@ -29,84 +26,32 @@ procedure WriteProjectMapOptions(FileName: string; WebMapSource:Integer);
 implementation
 
 uses
-  project, main, mapoptions, epanet2;
+  project, main, mapoptions, mapthemes, epanet2;
 
 const
-  DefProps: array[1..project.MAX_DEF_PROPS] of string =
+  BaseDefProps: TDefProps =
     ('0', '20', '50',      // Node elevation, Tank height & diameter
      '1000', '12', '130'); // Pipe length, diameter & roughness
 
-  DefOptions: array[1..project.MAX_DEF_OPTIONS] of string =
-    ('gpm', 'H-W', '40',   // Flow units & head loss model
-     '50',                 // Max trials
-     '0.001', '0', '0');   // Accuracy, flow & head tolerances
-
-procedure SaveFormPosition(FileName: string);
-var
-  Ini: TIniFile;
-  W, H, L, T: LongInt;
-  DPI: LongInt;
-begin
-  DPI := Screen.PixelsPerInch;
-  Ini := TIniFile.Create(FileName);
-  try
-    with mainForm do
-    begin
-      L := (Left * 96) div DPI;
-      T := (Top * 96) div DPI;
-      W := (Width * 96) div DPI;
-      H := (Height * 96) div DPI;
-      Ini.WriteInteger('MainForm', 'Left', L);
-      Ini.WriteInteger('MainForm', 'Top', T);
-      Ini.WriteInteger('MainForm', 'Width', W);
-      Ini.WriteInteger('MainForm', 'Height', H)
-    end;
-  finally
-    Ini.Free;
-  end;
-
-end;
-
-procedure ReadFormPosition(FileName: string);
-var
-  Ini: TIniFile;
-  W, H: Integer;
-begin
-  W := Screen.Width - Screen.Width div 4;
-  H := Screen.Height - Screen.Height div 4;
-  if not FileExists(FileName) then
-  begin
-    mainForm.BoundsRect := Bounds(0, 0, W, H);
-    exit;
-  end;
-
-  Ini := TIniFile.Create(FileName);
-  try
-    mainForm.BoundsRect := Bounds(
-      Ini.ReadInteger('MainForm', 'Left', 0),
-      Ini.ReadInteger('MainForm', 'Top', 0),
-      Ini.ReadInteger('MainForm', 'Width', W),
-      Ini.ReadInteger('MainForm', 'Height', H));
-  finally
-    Ini.Free;
-  end;
-end;
+  BaseDefOptions: TDefOptions =
+    ('gpm', 'psi', 'H-W',       // Flow & pressure units, head loss model
+     '1.0', '1.0', '50',        // Sp. gravity & viscosity, max trials,
+     '0.001', '0', '0');        // convergence tolerances
 
 procedure ReadAppDefaults(FileName: string);
 var
-  I: Integer;
-  Ini: TIniFile;
-  Options: array [1..project.MAX_DEF_OPTIONS] of string;
+  I:       Integer;
+  Ini:     TIniFile;
+  Options: TDefOptions;
 begin
-
   if not FileExists(FileName) then
   begin
     for I := 1 to project.MAX_ID_PREFIXES do
       project.IDprefix[I] := '';
     for I := 1 to project.MAX_DEF_PROPS do
-      project.DefProps[I] := DefProps[I];
+      project.DefProps[I] := BaseDefProps[I];
     for I := 1 to project.MAX_DEF_OPTIONS do
-      Options[I] := DefOptions[I];
+      Options[I] := BaseDefOptions[I];
   end
   else
   begin
@@ -115,22 +60,24 @@ begin
       for I := 1 to project.MAX_ID_PREFIXES do
         project.IDprefix[I] := Ini.ReadString('ID_PREFIXES', IntToStr(I), '');
       for I := 1 to project.MAX_DEF_PROPS do
-        project.DefProps[I] := Ini.ReadString('DEFAULTS', IntToStr(I), DefProps[I]);
+        project.DefProps[I] := Ini.ReadString('DEFAULTS', IntToStr(I), BaseDefProps[I]);
       for I := 1 to project.MAX_DEF_OPTIONS do
-        Options[I] := Ini.ReadString('OPTIONS', IntToStr(I), DefOptions[I]);
+        Options[I] := Ini.ReadString('OPTIONS', IntToStr(I), BaseDefOptions[I]);
     finally
       Ini.Free;
     end;
   end;
+  project.SetFlowUnits(Options[htFlowUnits]);
+  project.SetPressUnits(Options[htPressUnits]);                                               
   project.SetDefHydOptions(Options);
   epanet2.ENsetoption(EN_STATUS_REPORT, EN_NORMAL_REPORT);
 end;
 
 procedure WriteAppDefaults(FileName: string);
 var
-  I: Integer;
-  Ini: TIniFile;
-  Options: array [1..project.MAX_DEF_OPTIONS] of string;
+  I:       Integer;
+  Ini:     TIniFile;
+  Options: TDefOptions;
 begin
   if not FileExists(FileName) then exit;
   Ini := TIniFile.Create(FileName);
@@ -149,9 +96,9 @@ end;
 
 procedure ReadProjectDefaults(FileName: string; var WebMapSource: Integer);
 var
-  I: Integer;
+  I:   Integer;
   Ini: TIniFile;
-  S: String;
+  S:   string;
 begin
   WebMapSource := -1;
   if not FileExists(Filename) then exit;
@@ -174,6 +121,8 @@ begin
       project.MsxInpFile := S
     else
       project.MsxInpFile := ExtractFilePath(project.InpFile) + S;
+    if not FileExists(project.MsxInpFile) then
+      project.MsxInpFile := '';
 
     // Map display options
     with MainForm.MapFrame.Map.Options do
@@ -188,14 +137,29 @@ begin
       BackColor := StringToColor(Ini.ReadString('MAP', 'BACKCOLOR', S));
     end;
     WebMapSource := Ini.ReadInteger('MAP', 'WEBMAPSOURCE', -1);
+
+    for I := Low(mapthemes.NodeColors) to High(mapthemes.NodeColors) do
+    begin
+      S := ColorToString(mapthemes.DefLegendColors[I]);
+      mapthemes.NodeColors[I] := StringToColor(
+        Ini.ReadString('LEGENDS', 'NODE' + IntToStr(I), S));
+    end;
+    for I := Low(mapthemes.LinkColors) to High(mapthemes.LinkColors) do
+    begin
+      S := ColorToString(mapthemes.DefLegendColors[I]);
+      mapthemes.LinkColors[I] := StringToColor(
+        Ini.ReadString('LEGENDS', 'LINK' + IntToStr(I), S));
+    end;
   finally
     Ini.Free;
   end;
+  UpdateLegendMarkers(ctNodes, mapthemes.NodeColors);
+  UpdateLegendMarkers(ctLinks, mapthemes.LinkColors);
 end;
 
 procedure WriteProjectDefaults(FileName: string; WebMapSource: Integer);
 var
-  I: Integer;
+  I:   Integer;
   Ini: TIniFile;
 begin
   Ini := TIniFile.Create(FileName);
@@ -209,36 +173,31 @@ begin
         Ini.WriteString('DEFAULTS', IntToStr(I), project.DefProps[I]);
 
       // MSX file name
-      if SameText(ExtractFilePath(project.MsxInpFile),
-        ExtractFilePath(project.InpFile))
-      then Ini.WriteString('MSX', 'FILE', '"' +
-        ExtractFileName(project.MsxInpFile) + '"')
-      else Ini.WriteString('MSX', 'FILE', '"' + project.MsxInpFile + '"');
-
-      // Map display options
-      with MainForm.MapFrame.Map.Options do
+      if project.MsxFlag then
       begin
-        Ini.WriteInteger('MAP', 'NODESIZE', NodeSize);
-        Ini.WriteBool('MAP', 'SHOWNODESBYSIZE', ShowNodesBySize);
-        Ini.WriteBool('MAP', 'SHOWNODEBORDER', ShowNodeBorder);
-        Ini.WriteInteger('MAP', 'LINKSIZE', LinkSize);
-        Ini.WriteBool('MAP', 'SHOWLINKSBYSIZE', ShowLinksBySize);
-        Ini.WriteBool('MAP', 'SHOWLINKBORDER', ShowLinkBorder);
-        Ini.WriteString('MAP', 'BACKCOLOR', ColorToString(BackColor));
-      end;
-      Ini.WriteInteger('MAP', 'WEBMAPSOURCE', WebMapSource);
-
-    // Catch any exception thrown
+        if SameText(ExtractFilePath(project.MsxInpFile),
+          ExtractFilePath(project.InpFile))
+        then Ini.WriteString('MSX', 'FILE', '"' +
+          ExtractFileName(project.MsxInpFile) + '"')
+        else Ini.WriteString('MSX', 'FILE', '"' + project.MsxInpFile + '"');
+      end
+      else
+        Ini.WriteString('MSX', 'FILE', '""');
     except
     end;
 
   finally
     Ini.Free;
   end;
+
+  // Map display options
+  WriteProjectMapOptions(FileName, WebMapSource);
+
 end;
 
 procedure WriteProjectMapOptions(FileName: string; WebMapSource:Integer);
 var
+  I:   Integer;
   Ini: TIniFile;
 begin
   Ini := TIniFile.Create(FileName);
@@ -256,6 +215,13 @@ begin
         Ini.WriteString('MAP', 'BACKCOLOR', ColorToString(BackColor));
       end;
       Ini.WriteInteger('MAP', 'WEBMAPSOURCE', WebMapSource);
+
+      for I := Low(mapthemes.NodeColors) to High(mapthemes.NodeColors) do
+        Ini.WriteString('LEGENDS', 'NODE' + IntToStr(I),
+          ColorToString(mapthemes.NodeColors[I]));
+      for I := Low(mapthemes.LinkColors) to High(mapthemes.LinkColors) do
+        Ini.WriteString('LEGENDS', 'LINK' + IntToStr(I),
+          ColorToString(mapthemes.LinkColors[I]));
     except
     end;
 

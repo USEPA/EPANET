@@ -1,18 +1,16 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       networkrpt
  Description:  A frame that displays a table of computed results
                for all network nodes or links
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit networkrpt;
 
-{  This file defines a Frame that displays simulation results for all
+{  This unit contains a frame that displays simulation results for all
    network nodes or links in a table that can be sorted and filtered.
 
    A TNotebook has a TablePage to display the results in a TDrawGrid
@@ -30,10 +28,11 @@ uses
 
 type
 TFilter = record
-  Param: Integer;
+  Param:    Integer;
   Relation: Integer;
-  Value: Single;
-  Text: string;
+  Value:    Single;
+  ValueStr: string;
+  Text:     string;
 end;
 
   TIntegerList = specialize TFPGList<Integer>;  // an integer list
@@ -41,33 +40,36 @@ end;
   { TNetworkRptFrame }
 
   TNetworkRptFrame = class(TFrame)
-    ParamCheckGroup: TCheckGroup;
-    DrawGrid1: TDrawGrid;
+    Notebook1:         TNotebook;
+    TablePage:         TPage;
+    FilterPage:        TPage;
+    DataGrid:          TDrawGrid;
+    Label1:            TLabel;
+    Panel1:            TPanel;
+    BottomPanel:       TPanel;
+    GroupBox1:         TGroupBox;
+    ParamCheckGroup:   TCheckGroup;
+    ParamComboBox:     TComboBox;
+    RelationComboBox:  TComboBox;
+    ParamValueEdit:    TEdit;
+    FiltersListBox:    TListBox;
+    FiltersAcceptBtn:  TButton;
+    FiltersAddBtn:     TButton;
+    FiltersCancelBtn:  TButton;
+    FiltersDeleteBtn:  TButton;
+    PopupMenu1:        TPopupMenu;
+    MenuSave:          TMenuItem;
+    MnuFilters:        TMenuItem;
+    MenuCopy:          TMenuItem;
     ExportToClipboard: TMenuItem;
-    ExportToFile: TMenuItem;
-    FilterPage: TPage;
-    FiltersAcceptBtn: TButton;
-    FiltersAddBtn: TButton;
-    FiltersCancelBtn: TButton;
-    FiltersDeleteBtn: TButton;
-    FiltersListBox: TListBox;
-    GroupBox1: TGroupBox;
-    MenuSave: TMenuItem;
-    MnuFilters: TMenuItem;
-    MenuCopy: TMenuItem;
-    Notebook1: TNotebook;
-    BottomPanel: TPanel;
-    ParamComboBox: TComboBox;
-    ParamValueEdit: TEdit;
-    PopupMenu1: TPopupMenu;
-    RelationComboBox: TComboBox;
-    TablePage: TPage;
-    procedure CloseBtnClick(Sender: TObject);
-    procedure DrawGrid1DrawCell(Sender: TObject; aCol, aRow: Integer;
+    ExportToFile:      TMenuItem;
+
+    procedure DataGridClick(Sender: TObject);
+    procedure DataGridDrawCell(Sender: TObject; aCol, aRow: Integer;
       aRect: TRect; aState: TGridDrawState);
-    procedure DrawGrid1HeaderClick(Sender: TObject; IsColumn: Boolean;
+    procedure DataGridHeaderClick(Sender: TObject; IsColumn: Boolean;
       Index: Integer);
-    procedure DrawGrid1PrepareCanvas(sender: TObject; aCol, aRow: Integer;
+    procedure DataGridPrepareCanvas(sender: TObject; aCol, aRow: Integer;
       aState: TGridDrawState);
     procedure FiltersAcceptBtnClick(Sender: TObject);
     procedure FiltersAddBtnClick(Sender: TObject);
@@ -80,11 +82,13 @@ end;
 
   private
     procedure SetupTable;
-    function  GetTableCellValue(C: LongInt; R: LongInt): String;
-    function  SetFilter(I: Integer; X: Single): String;
+    function  GetTableCellValue(C: LongInt; R: LongInt): string;
+    function  GetParamIndex(ColIndex: Integer): Integer;
+    function  SetFilter(I: Integer; X: Single; S: string): string;
     function  Filtered(Index: Integer): Boolean;
-    procedure GetDrawGridContents(Slist: TStringList);
-    procedure RefreshGrid;
+    function  FilterCompare(Index, Param: Integer; CompValue: Single;
+              CompStr: string): Integer;
+    procedure GetDataGridContents(Slist: TStringList);
 
   public
     procedure InitReport(aReportType: Integer);
@@ -92,6 +96,7 @@ end;
     procedure ClearReport;
     procedure RefreshReport;
     procedure ShowPopupMenu;
+    procedure RefreshGrid;
 
   end;
 
@@ -100,68 +105,120 @@ implementation
 {$R *.lfm}
 
 uses
-  project, main, mapthemes, results, config, utils;
+  project, main, mapthemes, results, config, utils, reportviewer,
+  epanet2, resourcestrings;
 
 const
   rtBelow = 0;
   rtEqual = 1;
-  reAbove = 2;
-
-  SortCaption = 'Click a column header to sort it.';
+  rtAbove = 2;
 
 var
-  TimePeriod: Integer;      // Time period being viewed
-  TableType: Integer;       // Either Nodes or Links
-  IndexList: TIntegerList;  // List of table indices for nodes/links
-  SortIndex: Integer;       // Index of column to sort on
-  SortOrder: TSortOrder;    // Either ascending or descending
-  NumFilters: Integer;      // Number of table filter conditions
-  NumTmpFilters: Integer;   // Number of temporary filter conditions
-  Filters: array[0..4] of TFilter;    // Table filter conditions
-  TmpFilters: array[0..4] of TFilter; // Temporary filter conditions
+  TimePeriod:    Integer;       // Time period being viewed
+  TableType:     Integer;       // Either Nodes or Links
+  IndexList:     TIntegerList;  // List of table indices for nodes/links
+  SortIndex:     Integer;       // Index of parameter being sorted
+  SortOrder:     TSortOrder;    // Either ascending or descending
+  NumFilters:    Integer;       // Number of table filter conditions
+  NumTmpFilters: Integer;       // Number of temporary filter conditions
+  Filters:       array[0..4] of TFilter; // Table filter conditions
+  TmpFilters:    array[0..4] of TFilter; // Temporary filter conditions
+
+function GetObjectType(Index: Integer): string;
+//
+//  Return the type of object at grid row Index as a string
+//
+var
+  I: Integer = 0;
+  E: Integer = 0;
+begin
+  Result := '';
+  if TableType = ctNodes then
+    // Convert object index (1-based) to item (0-based)
+    Result := Trim(project.GetItemTypeStr(TableType, Index-1))
+  else
+  begin
+    E := epanet2.ENgetlinktype(Index, I);
+    if E > 0 then exit;
+    if I <= EN_PIPE then
+      Result := rsPipe
+    else if I = EN_PUMP then
+      Result := rsPump
+    else
+      // I is in the range EN_PRV to EN_PCV
+      Result := project.ValveTypeStr[I-EN_PRV];
+  end;
+end;
+
+function CompareFloat(X1, X2: Single): Integer;
+begin
+  if X1 < X2 then Result := -1
+  else if Abs(X1 - X2) < 0.001 then Result := 0
+  else Result := 1;
+end;
 
 function Compare(const Index1: LongInt; const Index2: LongInt): LongInt;
 //
-//  Comparison function used for sorting items in the TablePage.
+// Compare function used when grid is being sorted
 //
 var
-  X1, X2: Single;
+  X1: Single;
+  X2: Single;
+  S1: string;
+  S2: string;
 begin
   Result := 0;
-  if TableType = cNodes then
+
+  // Sorting object type
+  if SortIndex = 0 then
   begin
-    X1 := MapThemes.GetNodeValue(Index1, SortIndex, TimePeriod);
-    X2 := MapThemes.GetNodeValue(Index2, SortIndex, TimePeriod);
+    S1 := GetObjectType(Index1);
+    S2 := GetObjectType(Index2);
+    Result := CompareStr(S1, S2);
   end
-  else begin
+
+  // Sorting links
+  else if TableType = ctLinks then
+  begin
+    // Get parameter values for the two objects being compared
     X1 := MapThemes.GetLinkValue(Index1, SortIndex, TimePeriod);
     X2 := MapThemes.GetLinkValue(Index2, SortIndex, TimePeriod);
+
+    // Do string comparison for link status
+    if SortIndex = ltStatus then
+    begin
+      S1 := mapthemes.GetStatusStr(Round(X1));
+      S2 := mapthemes.GetStatusStr(Round(X2));
+      Result := CompareStr(S1, S2);
+    end
+    else
+      Result := CompareFloat(X1, X2);
+  end
+
+  // Sorting nodes
+  else if TableType = ctNodes then
+  begin
+    X1 := mapthemes.GetNodeValue(Index1, SortIndex, TimePeriod);
+    X2 := mapthemes.GetNodeValue(Index2, SortIndex, TimePeriod);
+    Result := CompareFloat(X1, X2);
   end;
-  if X1 < X2 then Result := -1
-  else if X1 > X2 then Result := 1;
   if SortOrder = soDescending then Result := -Result;
 end;
 
 procedure TNetworkRptFrame.InitReport(aReportType: Integer);
-//
-//  Initializes the report frame.
-//
 begin
-  DrawGrid1.AlternateColor := config.AlternateColor;
-  TableType := cNodes;
-  if aReportType = cLinks then TableType := cLinks;
+//  DataGrid.AlternateColor := config.AlternateColor;
+//  DataGrid.FixedColor := $00F2E4D7;
+  TableType := ctNodes;
+  if aReportType = ctLinks then TableType := ctLinks;
   TimePeriod := mapthemes.TimePeriod;
-  SortIndex := 0;
-  NumFilters := 0;
   Notebook1.PageIndex := 0;
   IndexList := TIntegerList.Create;
-//  SetupTable;
+  ClearReport;
+  SetupTable;
 end;
 
 procedure TNetworkRptFrame.CloseReport;
-//
-//  Closes the report frame.
-//
 begin
   ClearReport;
   IndexList.Free;
@@ -169,148 +226,170 @@ end;
 
 procedure TNetworkRptFrame.ClearReport;
 begin
-  DrawGrid1.Clear;
+  DataGrid.Clear;
   ParamCheckGroup.Items.Clear;
   ParamComboBox.Items.Clear;
   FiltersListBox.Items.Clear;
   IndexList.Clear;
-  SortIndex := 0;
+  SortIndex := -1;
   NumFilters := 0;
 end;
 
 procedure TNetworkRptFrame.RefreshReport;
-//
-//  Refreshes the contents of the report frame.
-//
 var
-  I: Integer;
-  S: String;
+  S: string;
 begin
-  // Setup the grid to display result themes in columns
-  ClearReport;
-  SetupTable;
-
   // Add a header row to the grid
-  DrawGrid1.RowCount := 1;
-  DrawGrid1.RowHeights[0] := 2 * DrawGrid1.DefaultRowHeight;
+  DataGrid.RowCount := 1;
+  DataGrid.RowHeights[0] := 2 * DataGrid.DefaultRowHeight -
+    (DataGrid.DefaultRowHeight div 2);
 
-  // Set time period to display
+  // Set the time period to display
   TimePeriod := mapthemes.TimePeriod;
 
   // Set caption of report's top panel
-  if TableType = cNodes then S := 'Node Results'
-  else S := 'Link Results';
+  if TableType = ctNodes then
+    S := rsNodeResults
+  else
+    S := rsLinkResults;
   if results.Nperiods > 1 then
-    S := S + ' at ' + results.GetTimeStr(TimePeriod) + ' hrs';
-  MainForm.ReportFrame.TopPanel.Caption := S;
+    S := S + Format(rsAtTimePeriod, [results.GetTimeStr(TimePeriod)]);
+  ReportViewerForm.TopPanel.Caption := S;
 
   // Display network results at specified time period
   RefreshGrid;
 end;
 
 procedure TNetworkRptFrame.RefreshGrid;
-//
-//  Refreshes the contents of the table grid.
-//
 var
   I: Integer;
-  S: String;
+  S: string;
 begin
-  // Set visibility of grid columns & their header height
-  for I := 0 to DrawGrid1.Columns.Count - 1 do
-    DrawGrid1.Columns[I].Visible := ParamCheckGroup.Checked[I];
+  // Set visibility of grid columns
+  DataGrid.FixedColor:= config.ThemeColor;
+  FilterPage.Color:= config.ThemeColor;
+  for I := 0 to DataGrid.Columns.Count - 1 do
+    DataGrid.Columns[I].Visible := ParamCheckGroup.Checked[I];
 
   // Add filtered results to the grid
   IndexList.Clear;
-  DrawGrid1.BeginUpdate;
+  DataGrid.BeginUpdate;
   for I := 1 to project.GetItemCount(TableType) do
-    if Filtered(I) then IndexList.Add(I);
-  DrawGrid1.RowCount := IndexList.Count + 1;
+  begin
+    if (NumFilters = 0) or Filtered(I) then IndexList.Add(I);
+  end;
+  DataGrid.RowCount := IndexList.Count + 1;
 
   // Sort the grid if called for
-  if (SortIndex > 0) then IndexList.Sort(@Compare);
-  DrawGrid1.EndUpdate(true);
+  if (SortIndex >= 0) then IndexList.Sort(@Compare);
+  DataGrid.EndUpdate(true);
 
   // Display number of table entries
-  if NumFilters = 0 then S := ' Unfiltered: '
-  else S := ' Filtered: ';
-  BottomPanel.Caption := S + IntToStr(DrawGrid1.RowCount - 1) + ' items.  ' +
-    SortCaption;
+  if NumFilters = 0 then
+    S := ' ' + rsUnfiltered + ' '
+  else
+    S := ' ' + rsFiltered + ' ';
+  BottomPanel.Caption := S + IntToStr(DataGrid.RowCount - 1) + ' ' + rsItems;
 end;
 
 procedure TNetworkRptFrame.SetupTable;
-//
-//  Set up the TablePage to display either nodes or links.
-//
 var
-  I, ThemeCount: Integer;
-  ParamName, ParamStr: string;
+  I:          Integer;
+  ThemeCount: Integer;
+  ParamName:  string = '';
+  ParamStr:   string = '';
 begin
-  // Add a column for each theme to the table
-  DrawGrid1.Columns.Clear;
-  if TableType = cNodes then ThemeCount := NodeThemeCount - 1
-  else ThemeCount := LinkThemeCount - 1;
-  for I := 1 to ThemeCount do DrawGrid1.Columns.Add;
+  // Add a column for object type
+  DataGrid.Columns.Clear;
+  DataGrid.Columns.Add;
+  DataGrid.Columns[0].Title.Caption := rsType;
+  ParamComboBox.Items.Add(rsType);
+  ParamCheckGroup.Items.Add(rsType);
+
+  // Add a column for each theme viewable on the network map
+  if TableType = ctNodes then
+    ThemeCount := NodeThemeCount - 1
+  else
+    // Include link Status & Setting which are not map viewable
+    ThemeCount := LinkThemeCount + 2 - 1;
+  for I := 1 to ThemeCount do DataGrid.Columns.Add;
 
   // Assign header names to each of the  columns
   for I := 1 to ThemeCount do
   begin
-    if TableType = cNodes then
+    if TableType = ctNodes then
     begin
       ParamName := mapthemes.NodeThemes[I].Name;
-      ParamStr := ParamName+ #10 + mapthemes.GetThemeUnits(cNodes, I)
-    end else
+      ParamStr := ParamName + LineEnding + mapthemes.GetThemeUnits(ctNodes, I)
+    end
+    else if TableType = ctLinks then
     begin
-      ParamName := mapthemes.LinkThemes[I].Name;
-      ParamStr := ParamName + #10 + mapthemes.GetThemeUnits(cLinks, I);
+      // For map viewable themes
+      if I <= ThemeCount - 2 then
+      begin
+        ParamName := mapthemes.LinkThemes[I].Name;
+        ParamStr := ParamName + LineEnding + mapthemes.GetThemeUnits(ctLinks, I);
+      end
+
+      // For link Status & Setting
+      else if I < ThemeCount then
+      begin
+        ParamName := rsStatus;
+        ParamStr := ParamName;
+      end
+      else
+      begin
+        ParamName := rsSetting;
+        ParamStr := ParamName;
+      end;
     end;
     ParamComboBox.Items.Add(ParamName);
     ParamCheckGroup.Items.Add(ParamName);
-    DrawGrid1.Columns[I-1].Title.Caption := ParamStr;
+    DataGrid.Columns[I].Title.Caption := ParamStr;
   end;
   ParamComboBox.ItemIndex := 0;
 
-  // Select which parameters to display initially
-  for I := 0 to ThemeCount - 1 do
+  // Select which parameters (i.e., columns) to display initially
+  for I := 0 to ThemeCount do
   begin
-    ParamCheckGroup.Checked[I] := True;
-    if (TableType = cNodes) and
-      (I+1 in [ntElevation, ntBaseDemand, ntEmittance, ntLeakage]) then
-        ParamCheckGroup.Checked[I] := False
-    else if (TableType = cLinks) and
-      (I+1 in [ltDiameter, ltLength, ltRoughness]) then
-        ParamCheckGroup.Checked[I] := False;
+    ParamCheckGroup.Checked[I] := true;
+    if (TableType = ctNodes)
+    and (I in [ntElevation, ntBaseDemand, ntEmittance, ntLeakage]) then
+    begin
+      ParamCheckGroup.Checked[I] := false
+    end
+    else if (TableType = ctLinks)
+    and (I in [ltDiameter, ltLength, ltRoughness]) then
+    begin
+      ParamCheckGroup.Checked[I] := false;
+    end;
   end;
 end;
 
-procedure TNetworkRptFrame.DrawGrid1PrepareCanvas(sender: TObject; aCol,
+procedure TNetworkRptFrame.DataGridPrepareCanvas(sender: TObject; aCol,
   aRow: Integer; aState: TGridDrawState);
-//
-//  Set up the format used to display text in the TabelPage's DrawGrid.
-//
 var
   MyTextStyle: TTextStyle;
 begin
-  MyTextStyle := DrawGrid1.Canvas.TextStyle;
+  MyTextStyle := DataGrid.Canvas.TextStyle;
   if aRow = 0 then
   begin
     MyTextStyle.SingleLine := false;
-    MyTextStyle.Alignment := taCenter;
-    DrawGrid1.Canvas.TextStyle := MyTextStyle;
+    if aCol > 0 then
+      MyTextStyle.Alignment := taCenter;
+    DataGrid.Canvas.TextStyle := MyTextStyle;
   end
   else if aCol > 0 then
   begin
-    MyTextStyle.Alignment := taRightJustify;
-    DrawGrid1.Canvas.TextStyle := MyTextStyle;
+    MyTextStyle.Alignment := taCenter;
+    DataGrid.Canvas.TextStyle := MyTextStyle;
   end;
 end;
 
 procedure TNetworkRptFrame.FiltersAcceptBtnClick(Sender: TObject);
 //
-//  OnClick handler for the Accept button on the Filters dialog page.
-//
-//  Transfer the filters defined on the FilterPage to the actual filters
-//  used to display results on the TablePage.
+// Transfer the filters defined on the FilterPage to the actual filters
+// used to display results on the TablePage.
 //
 var
   I: Integer;
@@ -320,89 +399,78 @@ begin
     Filters[I] := TmpFilters[I];
   NoteBook1.PageIndex := 0;
   RefreshGrid;
+  DataGrid.SetFocus;
 end;
 
 procedure TNetworkRptFrame.FiltersAddBtnClick(Sender: TObject);
 //
-//  OnClick handler for the Add button on the Filters dialog page.
-//
-//  Add the filter entered into the FilterPage's controls to the list
-//  of filters.
+// Add the filter entered into the FilterPage's controls to the list
+// of filters.
 //
 var
-  S: string;
-  X: Single = 0;
+  Filter:    string;
+  ParamStr:  string;
+  S:         string = '';
+  X:         Single = 0;
 begin
-  if Utils.Str2Float(ParamValueEdit.Text, X) then
+  S := Trim(ParamValueEdit.Text);
+  ParamStr := ParamComboBox.Text;
+  if (not SameText(ParamStr, 'Type')) and
+     (not SameText(ParamStr, 'Status')) then
   begin
-    S := SetFilter(NumTmpFilters, X);
-    FiltersListBox.Items.Add(S);
-    FiltersListBox.ItemIndex := FiltersListBox.Count - 1;
-    FiltersAddBtn.Enabled := FiltersListBox.Count < Length(Filters);
-    FiltersDeleteBtn.Enabled := true;
-    Inc(NumTmpFilters);
-    ParamComboBox.SetFocus;
-  end else
-    Utils.MsgDlg(ParamValueEdit.Text + ' is not a valid number.', mtError, [mbOk]);
+    if not utils.Str2Float(S, X) then
+    begin
+      Utils.MsgDlg(rsInvalidData, ParamValueEdit.Text + rsInvalidNumber,
+        mtError, [mbOk]);
+      exit;
+    end;
+  end;
+  Filter := SetFilter(NumTmpFilters, X, S);
+  FiltersListBox.Items.Add(Filter);
+  FiltersListBox.ItemIndex := FiltersListBox.Count - 1;
+  FiltersAddBtn.Enabled := FiltersListBox.Count < Length(Filters);
+  FiltersDeleteBtn.Enabled := true;
+  Inc(NumTmpFilters);
+  ParamComboBox.SetFocus;
 end;
 
 procedure TNetworkRptFrame.FiltersCancelBtnClick(Sender: TObject);
-//
-//  OnClick handler for the Cancel button on the FilterPage.
-//
-//  Exit the FilterPage and return to the TablePage.
-//
 begin
   Notebook1.PageIndex := 0;
 end;
 
 procedure TNetworkRptFrame.FiltersDeleteBtnClick(Sender: TObject);
-//
-//  OnClick handler the the Delete button on the FilterPage.
-//
-//  Remove the selected filter from the filters list.
-//
-  var
-    I, J: Integer;
+var
+  I: Integer;
+  J: Integer;
+begin
+  I := FiltersListBox.ItemIndex;
+  if I < NumTmpFilters - 1 then
   begin
-    I := FiltersListBox.ItemIndex;
-    if I < NumTmpFilters - 1 then
-      for J := I to NumTmpFilters - 2 do
-        TmpFilters[J] := TmpFilters[J+1];
-    FiltersListBox.Items.Delete(I);
-    Dec(NumTmpFilters);
-    if I > 0 then
-      Dec(I);
-    if FiltersListBox.Count = 0 then
-    begin
-      FiltersDeleteBtn.Enabled := false;
-    end
-    else begin
-      FiltersListBox.ItemIndex := I;
-    end;
+    for J := I to NumTmpFilters - 2 do
+      TmpFilters[J] := TmpFilters[J+1];
+  end;
+  FiltersListBox.Items.Delete(I);
+  Dec(NumTmpFilters);
+  if I > 0 then Dec(I);
+  if FiltersListBox.Count = 0 then
+    FiltersDeleteBtn.Enabled := false
+  else
+    FiltersListBox.ItemIndex := I;
 end;
 
 procedure TNetworkRptFrame.FiltersListBoxSelectionChange(Sender: TObject;
   User: boolean);
-//
-//  OnSelectionChange handler for the FilterPage's list box.
-//
-//  Place the selected filter's parameters into the page's editing controls.
-//
 var
   I: Integer;
 begin
   I := FiltersListBox.ItemIndex;
   ParamComboBox.ItemIndex := TmpFilters[I].Param ;
   RelationComboBox.ItemIndex := TmpFilters[I].Relation;
-  ParamValueEdit.Text := FloatToStr(TmpFilters[I].Value);
+  ParamValueEdit.Text := TmpFilters[I].ValueStr;
 end;
 
 procedure TNetworkRptFrame.ShowPopupMenu;
-//
-//  Display a popup menu with choices to set table filters or export the
-//  table.
-//
 var
   P : TPoint;
 begin
@@ -412,13 +480,14 @@ end;
 
 procedure TNetworkRptFrame.MenuCopyClick(Sender: TObject);
 //
-//  OnClick handler for the menu item to copy the TablePage to the clipboard.
+//  Copy contents of DataGrid to the Clipboard.
+//
 var
   Slist: TStringList;
 begin
   Slist := TStringList.Create;
   try
-    GetDrawGridContents(Slist);
+    GetDataGridContents(Slist);
     Clipboard.AsText := Slist.Text;
   finally
     Slist.Free;
@@ -426,18 +495,22 @@ begin
 end;
 
 procedure TNetworkRptFrame.MenuSaveClick(Sender: TObject);
+//
+//  Save contents of DataGrid to a file.
+//
 var
   Slist: TStringList;
 begin
-  with MainForm.SaveDialog1 do begin
+  with MainForm.SaveDialog1 do
+  begin
     FileName := '*.txt';
-    Filter := 'Text File|*.txt|All Files|*.*';
+    Filter := rsTextFile;
     DefaultExt := '*.txt';
     if Execute then
     begin
       Slist := TStringList.Create;
       try
-        GetDrawGridContents(Slist);
+        GetDataGridContents(Slist);
         Slist.SaveToFile(FileName);
       finally
         Slist.Free;
@@ -448,15 +521,12 @@ end;
 
 procedure TNetworkRptFrame.MnuFiltersClick(Sender: TObject);
 //
-//  OnClick hander for the menu item to set filters for the TabelPage.
-//
-//  Display the FilterPage of the frame's notebook.
+//  Switch to the FilterPage of Notebook1.
 //
 var
   I: Integer;
   EnableBtns: Boolean = false;
 begin
-  FilterPage.Color:= config.ThemeColor;
   FiltersListBox.Clear;
   for I := 0 to High(TmpFilters) do
   begin
@@ -478,7 +548,8 @@ begin
   FiltersDeleteBtn.Enabled := EnableBtns;
   if NumFilters > 0 then
      FiltersListBoxSelectionChange(Sender, false)
-  else begin
+  else
+  begin
     ParamComboBox.ItemIndex := 0;
     RelationComboBox.ItemIndex := 0;
     ParamValueEdit.Text := '';
@@ -487,154 +558,238 @@ begin
   ParamCheckGroup.SetFocus;
 end;
 
-procedure TNetworkRptFrame.DrawGrid1HeaderClick(Sender: TObject;
+function TNetworkRptFrame.GetParamIndex(ColIndex: Integer): Integer;
+//
+//  Find the index of the parameter displayed in the DataGrid's
+//  ColIndex column.
+//
+var
+  S: string;
+begin
+  Result := ColIndex - 1;
+  if TableType = ctLinks then
+  begin
+    S := self.DataGrid.Columns[ColIndex-1].Title.Caption;
+    if SameText(S, rsStatus) then
+      Result := ltStatus
+    else if SameText(S, rsSetting) then
+      Result := ltSetting;
+  end;
+end;
+
+procedure TNetworkRptFrame.DataGridHeaderClick(Sender: TObject;
   IsColumn: Boolean; Index: Integer);
-//
-//  OnClick handler for the headers appearing on the TabelPage's DrawGrid.
-//
-//  Use the header click to indicate what parameter to sort the results by.
-//
 begin
   if IsColumn then
   begin
-    SortIndex := Index;
-    SortOrder := DrawGrid1.SortOrder;
+    SortIndex := GetParamIndex(Index);
+    SortOrder := DataGrid.SortOrder;
     RefreshGrid;
   end;
 end;
 
-procedure TNetworkRptFrame.DrawGrid1DrawCell(Sender: TObject; aCol,
+procedure TNetworkRptFrame.DataGridDrawCell(Sender: TObject; aCol,
   aRow: Integer; aRect: TRect; aState: TGridDrawState);
-//
-//  OnDrawGridCell handler for the TablePage's DrawGrid.
-//
-//  Obtain the value to display in a cell of the DrawGrid.
-//
 var
-  S: String;
+  S: string;
   H: Integer;
+  N: Integer;
 begin
   S := GetTableCellValue(aCol, aRow);
   with Sender as TDrawGrid do
   begin
-    if (aRow = 0) and (aCol = 0) then
-    begin
-      H := (aRect.Height - Canvas.TextHeight(S)) div 2;
-      Canvas.TextRect(aRect, aRect.Left+2, aRect.Top + H, S)
-    end
+    if aRow = 0 then
+      N := 2
     else
-      Canvas.TextRect(aRect, aRect.Left+2, aRect.Top+2, S);
+      N := 1;
+    H := (aRect.Height - N * Canvas.TextHeight(S)) div 2;
+    Canvas.TextRect(aRect, aRect.Left+2, aRect.Top + H, S);
   end;
 end;
 
-procedure TNetworkRptFrame.CloseBtnClick(Sender: TObject);
+procedure TNetworkRptFrame.DataGridClick(Sender: TObject);
 //
-//  OnClick handler for the TopPanel's Close button.
-//
-begin
-  MainForm.ReportFrame.CloseReport;
-end;
-
-function TNetworkRptFrame.GetTableCellValue(C: LongInt; R: LongInt): String;
-//
-//  Get the value of the parameter to display in a cell of the table.
+//  Make the object selected in the DataGrid also selected on the network
+//  map and in the ProjectFrame's Property Editor.
 //
 var
-  X: Single;
-  Index: Integer = 0;
+  ItemIndex: Integer;
 begin
+  with DataGrid do
+  begin
+    if Row > 0 then
+    begin
+      ItemIndex := project.GetItemIndex(TableType, GetTableCellValue(0, Row));
+      MainForm.ProjectFrame.SelectItem(TableType, ItemIndex - 1);
+    end;
+  end;
+end;
+
+
+function TNetworkRptFrame.GetTableCellValue(C: LongInt; R: LongInt): string;
+var
+  X: Single;
+  S: string;
+  Index: Integer = 0;
+  Param: Integer = 0;
+begin
+  // Find the index of the node/link displayed in DataGrid's row R
   Result := '';
   if R >= 1 then Index := IndexList[R-1];
+
+  // Column is 0 -- return either column header or object's ID
   if C = 0 then
   begin
-    if TableType = cNodes then
+    if R = 0 then
     begin
-      if R = 0 then
-        Result := 'Node'
+      if TableType = ctNodes then
+         Result := LineEnding + rsNode
       else
-        Result := Project.GetID(cNodes, Index);
+        Result := LineEnding + rsLink;
     end
-    else begin
-      if R = 0 then  Result := 'Link'
-      else Result := Project.GetID(cLinks, Index);
-    end;
-  end
-  else if R > 0 then
-  begin
-    if TableType = cNodes then
-      X := MapThemes.GetNodeValue(Index, C, TimePeriod)
     else
-      X := MapThemes.GetLinkValue(Index, C, TimePeriod);
-    if X = MISSING then Result := 'N/A  '
+      Result := project.GetID(TableType, Index);
+    exit;
+  end;
+
+  // For non-header rows
+  if R > 0 then
+  begin
+    // Get header text for Column object associated with grid column C
+    X := MISSING;
+    S := DataGrid.Columns[C-1].Title.Caption;
+
+    // Column displays object type
+    if SameText(S, rsType) then
+    begin
+      Result := GetObjectType(Index);
+      exit;
+    end;
+
+    // Column displays a node/link parameter
+    Param := GetParamIndex(C);
+    if TableType = ctNodes then
+      X := mapthemes.GetNodeValue(Index, Param, TimePeriod)
+    else
+      X := mapthemes.GetLinkValue(Index, Param, TimePeriod);
+
+    // Convert retrieved numerical value to a string
+    if X = MISSING then
+      Result := rsNA + '  '
+    else if (TableType = ctLinks) and (Param = ltStatus) then
+      Result := mapthemes.GetStatusStr(Round(X))
     else
       Result := FloatToStrF(X, ffFixed, 7, config.DecimalPlaces) + '  ';
   end;
 end;
 
-function TNetworkRptFrame.SetFilter(I: Integer; X: Single): String;
+function TNetworkRptFrame.SetFilter(I: Integer; X: Single; S: string): string;
 //
-//  Transfer the entries in the FilterPage's editing controls to
-//  a string representation of a filter.
+// Transfer the entries in the FilterPage's editing controls to
+// a string representation of a filter.
 //
 begin
   Result := ParamComboBox.Text + ' '  + RelationComboBox.Text + ' ' +
             ParamValueEdit.Text;
-  TmpFilters[I].Param:= ParamComboBox.ItemIndex;
-  TmpFilters[I].Relation:= RelationComboBox.ItemIndex;
-  TmpFilters[I].Value:= X;
+
+  // Convert from combobox item index to grid column index
+  TmpFilters[I].Param := ParamComboBox.ItemIndex + 1;
+
+  TmpFilters[I].Relation := RelationComboBox.ItemIndex;
+  TmpFilters[I].Value := X;
+  TmpFilters[I].ValueStr := S;
   TmpFilters[I].Text := Result;
 end;
 
 function TNetworkRptFrame.Filtered(Index: Integer): Boolean;
 //
-//  Determine if the result for a given node or link meets the
-//  filtering crieria or not.
+// Determine if the result for a given node or link meets the
+// filtering crieria or not.
 //
 var
-  I: Integer;
-  C: Integer;
-  X, Y: Single;
+  I:        Integer;
+  ObjIndex: Integer;
+  Param:    Integer;
+  Comp:     Integer;
 begin
-  if NumFilters = 0 then
-    Result := true
-  else
-    Result := false;
+  Result := false;
+  ObjIndex := project.GetResultIndex(TableType, Index);
+  if ObjIndex = 0 then exit;
+
   for I := 0 to NumFilters - 1 do
   begin
-    C := Filters[I].Param + 1;
-    Y := Filters[I].Value;
-    if TableType = cNodes then
-      X := MapThemes.GetNodeValue(Index, C, TimePeriod)
-    else
-    begin
-      X := MapThemes.GetLinkValue(Index, C, TimePeriod);
-      if C = ltFlow then X := Abs(X);
-    end;
+    Param := GetParamIndex(Filters[I].Param);
+    Comp := FilterCompare(ObjIndex, Param, Filters[I].Value, Filters[I].ValueStr);
     case Filters[I].Relation of
-      rtBelow: if X > Y then exit;
-      rtEqual: if Abs(X - Y) > 0.001 then exit;
-      reAbove: if X < Y then exit;
+      rtBelow:
+        if Comp >= 0 then exit;
+      rtEqual:
+        if Comp <> 0 then exit;
+      rtAbove:
+        if Comp <= 0 then exit;
     end;
   end;
   Result := true;
 end;
 
-procedure TNetworkRptFrame.GetDrawGridContents(Slist: TStringList);
+function TNetworkRptFrame.FilterCompare(Index, Param: Integer; CompValue: Single;
+  CompStr: string): Integer;
 //
-//  Transfer the contents of the TablePage's DrawGrid to a StringList.
+//  Comparison function (returning -1, 0, or +1) for a node/link with index
+//  Index and parameter Param appearing in a table filter.
 //
 var
-  I, R: Integer;
-  S, ColName: string;
+  X: Single;
+  ObjType: string;
 begin
-  with DrawGrid1 do
+  // Parameter is node/link type
+  Result := 0;
+  if Param = 0 then
+  begin
+    ObjType := GetObjectType(Index);
+    Result := CompareText(ObjType, CompStr)
+  end
+
+  // For Links table
+  else if TableType = ctLinks then
+  begin
+    // Get parameter value
+    X := mapthemes.GetLinkValue(Index, Param, TimePeriod);
+    // Use abs value for flow
+    if Param = ltFlow then X := abs(X);
+    // Do string comparison for link status
+    if Param = ltStatus then
+      Result := CompareText(mapthemes.GetStatusStr(Round(X)), CompStr)
+    // Otherwise do numerical comparison
+    else
+      Result := CompareFloat(X, CompValue);
+  end
+
+  // For Node table, all parameters are numerical
+  else if TableType = ctNodes then
+  begin
+    X := mapthemes.GetNodeValue(Index, Param, TimePeriod);
+    Result := CompareFloat(X, CompValue);
+  end;
+end;
+
+procedure TNetworkRptFrame.GetDataGridContents(Slist: TStringList);
+var
+  I: Integer;
+  R: Integer;
+  S: string;
+  ColName: string;
+begin
+  with DataGrid do
   begin
     // Add title lines to the Slist
-    S := Project.GetTitle(0);
+    S := project.GetTitle(0);
     Slist.Add(S);
-    if TableType = cNodes then S := 'Network Nodes Report'
-    else S := 'Network Links Report';
-    S := S + ' at ' + Results.GetTimeStr(TimePeriod) + ' hrs';
+    if TableType = ctNodes then
+      S := rsNodesReport
+    else
+      S := rsLinksReport;
+    S := S + Format(rsAtTimePeriod, [Results.GetTimeStr(TimePeriod)]);
     Slist.Add(S);
     Slist.Add('');
 
@@ -643,11 +798,11 @@ begin
     for I := 0 to Columns.Count - 1 do
     begin
       if not Columns[I].Visible then continue;
-      if TableType = cNodes then
+      if TableType = ctNodes then
         ColName := mapthemes.NodeThemes[I+1].Name
       else
         ColName := mapthemes.LinkThemes[I+1].Name;
-      S := S + Format('%20s', [ColName]);
+      S := S + #9 + Format('%20s', [ColName]);
     end;
     Slist.Add(S);
 
@@ -656,7 +811,7 @@ begin
     for I := 0 to Columns.Count - 1 do
     begin
       if not Columns[I].Visible then continue;
-      S := S + Format('%20s', [mapthemes.GetThemeUnits(TableType, I+1)]);
+      S := S + #9 + Format('%20s', [mapthemes.GetThemeUnits(TableType, I+1)]);
     end;
     Slist.Add(S);
 
@@ -664,8 +819,11 @@ begin
     for R := 1 to RowCount - 1 do
     begin
       S := Format('%-22s', [GetTableCellValue(0, R)]);
-      for I := 1 to ColCount-1 do
-        S := S + Format('%20s', [GetTableCellValue(I, R)]);
+      for I := 1 to Columns.Count-1 do
+      begin
+        if not Columns[I].Visible then continue;
+        S := S + #9 + Format('%20s', [GetTableCellValue(I+1, R)]);
+      end;
       Slist.Add(S);
     end;
   end;

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       mapgeoref
  Description:  a frame used to georeference a basemap image
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 {
   The mapgeoref frame contains a TNotebook with 5 pages that are
@@ -35,50 +33,54 @@ type
   { TGeoRefFrame }
 
   TGeoRefFrame = class(TFrame)
-    BotPanel: TPanel;
-    BackBtn: TButton;
-    Label1: TLabel;
-    Label2: TLabel;
-    UnitsCB: TComboBox;
-    CtrlPt2RB: TRadioButton;
-    CtrlPt3RB: TRadioButton;
-    XunitsLabel: TLabel;
-    NextBtn: TButton;
-    CtrlPt1RB: TRadioButton;
-    RP2Label: TLabel;
-    WorldFileBtn: TButton;
-    CloseBtn: TSpeedButton;
-    LowLeftYEdit: TFloatSpinEditEx;
-    Label16: TLabel;
-    Label17: TLabel;
-    Label3: TLabel;
-    MethodRG: TRadioGroup;
-    Page5: TPage;
-    RP3Label: TLabel;
-    WorldFileGrid: TStringGrid;
-    UnitsRG: TRadioGroup;
-    RP1Label: TLabel;
-    Notebook1: TNotebook;
-    Page1: TPage;
-    Page2: TPage;
-    Page3: TPage;
-    Page4: TPage;
-    MidPanel: TPanel;
-    TopPanel: TPanel;
-    ExtentsGrid: TStringGrid;
-    LowLeftXEdit: TFloatSpinEditEx;
-    DistanceEdit: TFloatSpinEditEx;
-    YunitsLabel: TLabel;
+    Notebook1:      TNotebook;
+    Page1:          TPage;
+    Page2:          TPage;
+    Page3:          TPage;
+    Page4:          TPage;
+    Page5:          TPage;
+    TopPanel:       TPanel;
+    MidPanel:       TPanel;
+    BotPanel:       TPanel;
+    BackBtn:        TButton;
+    NextBtn:        TButton;
+    WorldFileBtn:   TButton;
+    CloseBtn:       TSpeedButton;
+    Label1:         TLabel;
+    Label2:         TLabel;
+    Label3:         TLabel;
+    Label16:        TLabel;
+    Label17:        TLabel;
+    RP1Label:       TLabel;
+    RP2Label:       TLabel;
+    RP3Label:       TLabel;
+    XunitsLabel:    TLabel;
+    YunitsLabel:    TLabel;
+    UnitsCB:        TComboBox;
+    UnitsRG:        TRadioGroup;
+    MethodRG:       TRadioGroup;
+    CtrlPt2RB:      TRadioButton;
+    CtrlPt3RB:      TRadioButton;
+    CtrlPt1RB:      TRadioButton;
+    WorldFileGrid:  TStringGrid;
+    ExtentsGrid:    TStringGrid;
+    LowLeftXEdit:   TFloatSpinEditEx;
+    LowLeftYEdit:   TFloatSpinEditEx;
+    DistanceEdit:   TFloatSpinEditEx;
+
     procedure BackBtnClick(Sender: TObject);
     procedure CloseBtnClick(Sender: TObject);
     procedure NextBtnClick(Sender: TObject);
     procedure WorldFileBtnClick(Sender: TObject);
+
   private
     GeoRefMethod: Integer;
-    MapUnits: String;
-    Lowerleft: mapcoords.TDoublePoint;
-    UpperRight: mapcoords.TDoublePoint;
-    CtrlPt: array[1..3] of mapcoords.TDoublePoint;
+    MapUnits:     string;
+    Lowerleft:    mapcoords.TDoublePoint;
+    UpperRight:   mapcoords.TDoublePoint;
+    CtrlPt:       array[1..3] of mapcoords.TDoublePoint;
+
+    procedure GetGeoRefMethod;
     procedure SetToolbarButtons;
     procedure LoadWorldFile;
     procedure FindExtentFromControlPoints;
@@ -86,7 +88,7 @@ type
     procedure SetBasemapExtent;
     function  AcceptDistancePoints: Boolean;
     function  AcceptReferencePoint: Boolean;
-    function  ReadWorldFile(Filename: String): Boolean;
+    function  ReadWorldFile(Filename: string): Boolean;
 
   public
     procedure Show;
@@ -99,29 +101,30 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, config, utils;
+  main, project, config, utils, resourcestrings;
 
 const
   gmControlPts = 0;
   gmWorldFile = 1;
 
-  WorldFileFields: array[0..3] of String =
-    ('World X / Pixel', 'World Y / Pixel', 'Top Left X', 'Top Left Y');
+  WorldFileFields: array[0..3] of string =
+    (rsWorldXpix, rsWorldYpix, rsTopLeftX, rsTopLeftY);
 
-  ExtentsFields: array[0..3] of String =
-    ('Lower Left X', 'Lower Left Y', 'Upper Right X', 'Upper Right Y');
+  ExtentsFields: array[0..3] of string =
+    (rsLowLeftX, rsLowLeftY, rsUpRightX, rsUpRightY);
 
 { TGeoRefFrame }
 
 procedure TGeoRefFrame.Show;
-
+//
 //  Initialize the frame's contents when made visible by user
 //  selecting the Georeference item on the main form's Basemap menu
-
+//
 var
   I: Integer;
 begin
   // Initialize georeferencing method and distance units
+  Color := config.CreamTheme;
   TopPanel.Color := config.ThemeColor;
   Notebook1.PageIndex := 0;
   MethodRG.ItemIndex := 0;
@@ -152,91 +155,98 @@ begin
   LowLeftXEdit.Value := 0;
   LowLeftYEdit.Value := 0;
   DistanceEdit.Value := 0;
-  CtrlPt1RB.Checked := False;
-  CtrlPt2RB.Checked := False;
-  CtrlPt3RB.Checked := False;
+  CtrlPt1RB.Checked := false;
+  CtrlPt2RB.Checked := false;
+  CtrlPt3RB.Checked := false;
 
   // Initialize the wizard's navigation buttons
   SetToolbarButtons;
-  Visible := True;
+  Visible := true;
 end;
 
 procedure TGeoRefFrame.Hide;
-
+//
 //  Hide the frame when the user clicks the close button in its top panel
-
+//
 var
   I: Integer;
 begin
   with MainForm.MapFrame do
-    for I := Low(CtrlPoint) to High(CtrlPoint) do CtrlPoint[I].Visible := False;
-  Visible := False;
+    for I := Low(CtrlPoint) to High(CtrlPoint) do CtrlPoint[I].Visible := false;
+  Visible := false;
   MainForm.MapFrame.RedrawMap;
 end;
 
 procedure TGeoRefFrame.NextBtnClick(Sender: TObject);
+begin
+  case Notebook1.PageIndex of
+    0: // Page1 - select method & units
+      GetGeoRefMethod;
+
+    1:  // Page2 - select distance control points
+      if AcceptDistancePoints then Notebook1.PageIndex := 2;
+
+    2:  // Page3 - select reference control point
+      begin
+        if AcceptReferencePoint then
+        begin
+          FindExtentFromControlPoints;
+          Notebook1.PageIndex := 4;
+        end;
+      end;
+
+    3:  // Page4 - display world file extents
+      Notebook1.PageIndex := 4;
+
+    4: // Page5 - accept georeferenced extents
+      SetBasemapExtent;
+  end;
+  SetToolbarButtons;
+end;
+
+procedure TGeoRefFrame.GetGeoRefMethod;
 var
   I: Integer;
 begin
-  case Notebook1.PageIndex of
-  0: // Page1 - select method & units
-    begin
-      if (GeoRefMethod = gmControlPts) and (MethodRG.ItemIndex = gmWorldFile) then
-      begin
-        with MainForm.MapFrame do
-          for I := Low(CtrlPoint) to High(CtrlPoint) do
-            CtrlPoint[I].Visible := False;
-        MainForm.MapFrame.RedrawMap;
-      end;
-      GeoRefMethod := MethodRG.ItemIndex;
-      with UnitsRG do
-      begin
-        MapUnits := Items[ItemIndex];
-        XunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
-        YunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
-      end;
-      if GeoRefMethod = gmControlPts then
-        Notebook1.PageIndex := 1
-      else
-        Notebook1.PageIndex := 3;
-    end;
-
-  1:  // Page2 - select distance control points
-    if AcceptDistancePoints then Notebook1.PageIndex := 2;
-
-  2:  // Page3 - select reference control point
-    begin
-      if AcceptReferencePoint then
-      begin
-        FindExtentFromControlPoints;
-        Notebook1.PageIndex := 4;
-      end;
-    end;
-
-  3:  // Page4 - display world file extents
-    Notebook1.PageIndex := 4;
-
-  4: // Page5 - accept georeferenced extents
-    SetBasemapExtent;
-
+  if (GeoRefMethod = gmControlPts)
+  and (MethodRG.ItemIndex = gmWorldFile) then
+  begin
+    with MainForm.MapFrame do
+      for I := Low(CtrlPoint) to High(CtrlPoint) do
+        CtrlPoint[I].Visible := false;
+    MainForm.MapFrame.RedrawMap;
   end;
-  SetToolbarButtons;
+
+  GeoRefMethod := MethodRG.ItemIndex;
+  with UnitsRG do
+  begin
+    MapUnits := Items[ItemIndex];
+    XunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
+    YunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
+  end;
+
+  if GeoRefMethod = gmControlPts then
+    Notebook1.PageIndex := 1
+  else
+    Notebook1.PageIndex := 3;
 end;
 
 procedure TGeoRefFrame.BackBtnClick(Sender: TObject);
 begin
   case Notebook1.PageIndex of
-  1:
-    Notebook1.PageIndex := 0;
-  2:
-    Notebook1.PageIndex := 1;
-  3:
-    Notebook1.PageIndex := 0;
-  4:
-    begin
-      if GeoRefMethod = gmControlPts then Notebook1.PageIndex := 2
-      else Notebook1.PageIndex := 3;
-    end;
+    1:
+      Notebook1.PageIndex := 0;
+    2:
+      Notebook1.PageIndex := 1;
+    3:
+      Notebook1.PageIndex := 0;
+    4:
+      begin
+        if GeoRefMethod = gmControlPts then
+          Notebook1.PageIndex := 2
+        else
+          Notebook1.PageIndex := 3;
+      end;
   end;
   SetToolbarButtons;
 end;
@@ -253,36 +263,39 @@ end;
 
 procedure TGeoRefFrame.SetToolbarButtons;
 begin
-  NextBtn.Caption := 'Next';
-  BackBtn.Enabled := True;
+  NextBtn.Caption := rsNext;
+  BackBtn.Enabled := true;
   case Notebook1.PageIndex of
-  0:
-    BackBtn.Enabled := False;
-  4:
-    NextBtn.Caption := 'Accept';
-  end;
+    0:
+      BackBtn.Enabled := false;
+    4:
+      NextBtn.Caption := rsAccept;
+    end;
 end;
 
 function TGeoRefFrame.AcceptDistancePoints: Boolean;
 begin
-  Result := False;
+  Result := false;
   if DistanceEdit.Value <= 0 then
-    utils.MsgDlg('Distance must be > 0.', mtError, [mbOK])
+    utils.MsgDlg(rsInvalidData, rsBadDistance, mtError, [mbOK])
+
   else if (RP1Label.Caption = '') or (RP2Label.Caption = '') then
-    utils.MsgDlg('Two control points must be selected.', mtError, [mbOK])
+    utils.MsgDlg(rsMissingData, rsTwoPtsNeeded, mtError, [mbOK])
+
   else if RP1Label.Caption = RP2Label.Caption then
-    utils.MsgDlg('Both control points cannot be the same.', mtError, [mbOK])
+    utils.MsgDlg(rsInvalidData, rsSamePts, mtError, [mbOK])
+
   else
-    Result := True;
+    Result := true;
 end;
 
 function TGeoRefFrame.AcceptReferencePoint: Boolean;
 begin
-  Result := False;
+  Result := false;
   if (RP3Label.Caption = '') then
-    utils.MsgDlg('No 3rd control point was selected.', mtError, [mbOK])
+    utils.MsgDlg(rsMissingData, rsNoThirdPt, mtError, [mbOK])
   else
-    Result := True;
+    Result := true;
 end;
 
 procedure TGeoRefFrame.LoadWorldFile;
@@ -291,25 +304,25 @@ begin
     with MainForm.OpenDialog1 do
     begin
       FileName := '*.wld';
-      Filter :=
-        'World File|*.wld|JPG World File|*.jgw|PNG World File|*.pgw|All Files|*.*';
+      Filter := rsWorldFile;
       if Execute then
       begin
         if not ReadWorldFile(Filename) then
-          Utils.MsgDlg('Could not read World file.', mtError, [mbOk], MainForm);
+          Utils.MsgDlg(rsFileError, rsNoWorldFile, mtError, [mbOk], MainForm);
       end;
     end;
   end;
 end;
 
-function TGeoRefFrame.ReadWorldFile(Filename: String): Boolean;
+function TGeoRefFrame.ReadWorldFile(Filename: string): Boolean;
 var
   Lines: TStringList;
-  I, K: Integer;
+  I: Integer;
+  K: Integer;
   X: array[0..5] of Double;
   BasemapSize: TSize;
 begin
-  Result := False;
+  Result := false;
   Lines := TStringList.Create;
   try
     Lines.LoadFromFile(Filename);
@@ -333,7 +346,7 @@ begin
           Cells[1,3] := Lines[5];
         end;
         FillExtentsGrid;
-        Result := True;
+        Result := true;
       end;
     end;
   finally
@@ -342,11 +355,8 @@ begin
 end;
 
 function TGeoRefFrame.GetCtrlPointIndex(W: TDoublePoint): Integer;
-
-//  Display the coordinates (W) of a control point selected by the user.
-
 var
-  S: String;
+  S: string;
 begin
   Result := 0;
   S := Format('%.6f, %.6f', [W.X, W.Y]);
@@ -356,7 +366,7 @@ begin
     begin
       RP3Label.Caption := S;
       CtrlPt[3] := W;
-      CtrlPt3RB.Checked := False;
+      CtrlPt3RB.Checked := false;
       Result := 3;
     end;
   end
@@ -364,14 +374,14 @@ begin
   begin
     RP1Label.Caption := S;
     CtrlPt[1] := W;
-    CtrlPt1RB.Checked := False;
+    CtrlPt1RB.Checked := false;
     Result := 1;
   end
   else if CtrlPt2RB.Checked then
   begin
     RP2Label.Caption := S;
     CtrlPt[2] := W;
-    CtrlPt2RB.Checked := False;
+    CtrlPt2RB.Checked := false;
     Result := 2;
   end;
 end;
@@ -379,11 +389,14 @@ end;
 procedure TGeoRefFrame.FindExtentFromControlPoints;
 var
   I: Integer;
-  SW, NE, DP, SWoffset: TDoublePoint;
-  Wwidth, Wheight, WPP: Double;
+  SW: TDoublePoint;
+  NE: TDoublePoint;
+  DP: TDoublePoint;
+  Wwidth: Double;
+  Wheight: Double;
+  WPP: Double;
   Psize: TSize;
   P: array[1..3] of TDoublePoint;
-
 begin
   // Get current basemap extent (SW, NW) in world coordinates and
   // basemap image width and height (Psize) in pixels
@@ -410,8 +423,8 @@ begin
   WPP := DistanceEdit.Value / WPP;
 
   // Use control point 3 to find lower left of new extent
-  LowerLeft.X := LowLeftXEdit.Value;  // - (P[3].X * WPP);
-  LowerLeft.Y := LowLeftYEdit.Value;  // - (P[3].Y * WPP);
+  LowerLeft.X := LowLeftXEdit.Value;
+  LowerLeft.Y := LowLeftYEdit.Value;
   UpperRight.X := LowerLeft.X + (WPP * Psize.Width);
   UpperRight.Y := LowerLeft.Y + (WPP * Psize.Height);
 
@@ -431,14 +444,15 @@ begin
 end;
 
 procedure TGeoRefFrame.SetBasemapExtent;
-
 //  Change the dimensions of the network map to encompass the basemap.
-
 var
-  NewExtent: TDoubleRect;
-  BasemapSize: TSize;
-  MapRect: TRect;
-  BasemapWidth, BasemapHeight, Delta, WPP: Double;
+  NewExtent:     TDoubleRect;
+  BasemapSize:   TSize;
+  MapRect:       TRect;
+  BasemapWidth:  Double;
+  BasemapHeight: Double;
+  Delta:         Double;
+  WPP:           Double;
 begin
   // Width & height of map window and basemap in pixels
   MapRect := MainForm.MapFrame.GetMapRect;
@@ -447,9 +461,10 @@ begin
   // Width & height of basemap in world units
   BasemapWidth := UpperRight.X - LowerLeft.X;
   BasemapHeight := UpperRight.Y - LowerLeft.Y;
-  if (BasemapWidth = 0) or (BasemapHeight = 0) then
+  if (BasemapWidth = 0)
+  or (BasemapHeight = 0) then
   begin
-    Utils.MsgDlg('Basemap extents are invalid.', mtError, [mbOk], MainForm);
+    Utils.MsgDlg(rsInvalidData, rsBadExtents, mtError, [mbOk], MainForm);
     exit;
   end;
 

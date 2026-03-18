@@ -1,43 +1,49 @@
 # Modeling Water Quality
-EPANET can model the propagation and fate of chemical and biological constituents throughout a distribution system over time. It can also compute water age and perform source tracing.
+The EPANET engine can model the propagation and fate of chemical and biological constituents throughout a distribution system over time. It can also compute water age and perform source tracing.
+
+NOTE:
+A model must be run as an extended period simulation (EPS) with duration greater than 0 for a water quality analysis to be made.
 
 ## Single Species Analysis
 EPANET's single species water quality option can be used to model:
 - blending water from different sources
 - age of water throughout a system
 - loss of chlorine residuals
-- growth of disinfection by-products.
+- growth of disinfection by-products
+- propagation of a contaminant intrusion.
 
-Follow these steps to build a single-species water quality model:
-1. Expand the ***Analysis Options*** topic from the Project Explorer Panel and select its  ***Quality*** sub-option.
-2. Select the ***Single Species*** row in the panel's Property Editor and press <kbd>Enter</kbd> to bring up the <a>Single Species Quality</a> Editor.
+Follow these steps to build a single-species water quality model with EPANET-UI:
+1. Expand the ***Analysis Options*** topic in the Project Explorer and select its  ***Quality*** sub-option.
+2. Select the ***Single Species*** row in the Property Editor and press <kbd>Enter</kbd> to bring up the <u>[Single Species Quality]</u> Editor.
 3. Enter your modeling choices in the editor.
-4. If modeling a reactive species, specify bulk and pipe wall reaction coeffciients for each pipe. The ***Group Edit*** button on the ***Edit*** menu tab makes it easy to set global values all at once.
+4. If modeling a reactive species, specify bulk and pipe wall reaction coeffciients for each pipe. The ***Group Edit*** button on the ***Edit*** Menu Bar makes it easy to set global values all at once.
 5. Assign initial water quality concentrations to each node. The ***Group Edit*** feature will also prove useful for this.
 
+Any water entering the network from a Reservoir node will have the node's assigned initial concentration for all time periods unless the node was also assigned a water quality source (see <u>[Water Quality Sources]</u>).  
 
 ## Multi-Species Analysis
 An extension to the original EPANET solver allows it to analyze multiple interacting chemcial and biological species within the distribution system. Examples include:
 - effect of source blending on chemical reaction rates
 - chloramine decomposition to ammonia 
 - bacterial growth with chlorine inhibition
-- oxidation and adsorption of arsenic.
+- oxidation and adsorption of arsenic
+- effect of longitudinal dispersion.
 
-To build a multi-species water quality model:
-1. Expand the ***Analysis Options*** topic from the Project Explorer Panel and select its  ***Quality*** sub-option.
-2. Select the ***Multi-Species*** row in the panel's Property Editor and press <kbd>Enter</kbd> to bring up the <a>Multi-Species Quality</a> Editor.
+To build a multi-species water quality model with EPANET-UI:
+1. Expand the ***Analysis Options*** topic in the Project Explorer and select its  ***Quality*** sub-option.
+2. Select the ***Multi-Species*** row in the Property Editor and press <kbd>Enter</kbd> to bring up the <u>[Multi-Species Quality]</u> Editor.
 3. Enter your modeling choices in the editor.
 Please consult the <a https://epanetmsx2manual.readthedocs.io/en/latest/1_introduction.html>EPANET-MSX Manual</a> for a more detailed description of how to build an EPANET multi-species water quality model.
 
 ## Water Quality Sources
-Both single and multi-species quality models allow you to specify an external source of water quality entering the network at a specific node. The source can be characterized by either a concentration (e.g., mg/L) or a mass flow rate (e.g., mg/minute). For single species analysis you would click the <imgt images/Ellipsis.png> button in the node's Source Quality property to edit its characteristics. For multi-species analysis you would select the ***Sources*** page in the <a>Multi-Species Quality</a> Editor to assign sources to specific nodes.
+Both single and multi-species quality models allow you to specify an external source of water quality entering the network at a specific node. The source can be characterized by either a concentration (e.g., mg/L) or a mass flow rate (e.g., mg/minute). For single species analysis you would click the <imgt images/Ellipsis.png> button in the node's Source Quality property to edit its characteristics. For multi-species analysis you would select the ***Sources*** page in the <u>[Multi-Species Quality]</u> Editor to assign sources to specific nodes.
 
 NOTE:
 For single species modeling of source tracing, a source is automatically placed at the designated source node and any other sources are ignored.
 
 <p>
 ***Concentration Sources***<br>
-A `CONCENTRATION` source represents the concentration of any external source inflow to a node.
+A `CONCENTRATION` source represents the concentration of any external inflow entering a node.
 - It applies only when the node has a net negative demand (water enters the network at the node).
 - It is best used for nodes that represent source water supplies or treatment works (e.g., reservoirs or nodes assigned a negative demand)
 - It should not be used at storage tanks with simultaneous infow/outfow.

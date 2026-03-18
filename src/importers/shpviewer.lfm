@@ -7,17 +7,17 @@ object ShpViewerForm: TShpViewerForm
   ClientHeight = 411
   ClientWidth = 678
   KeyPreview = True
+  Position = poMainFormCenter
+  LCLVersion = '4.4.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
   OnKeyDown = FormKeyDown
-  Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
   object Notebook1: TNotebook
     Left = 0
     Height = 411
     Top = 0
     Width = 678
-    PageIndex = 1
+    PageIndex = 0
     Align = alClient
     TabOrder = 0
     object AttributePage: TPage

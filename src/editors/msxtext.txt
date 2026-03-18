@@ -1,20 +1,22 @@
 const
 
   IntroA: String =
-    '<p><i>EPANET''s <b>Multi-Species Extension (MSX)</b> allows it to model the fate of '+
+    '<p>EPANET''s <i>Multi-Species Extension (MSX)</i> allows it to model the fate of '+
     'multiple, interacting chemical and biological species in both the bulk fluid '+
     'and at the pipe wall.</p>'+
     '<p>The data needed to define an MSX model are divided into several categories listed '+
     'in the left hand panel. Selecting a category will bring up its associated '+
-    'editor. The minimum required categories are <b>Species</b> and <b>Pipes</b>.</i></p>';
+    'editor. The minimum required categories are <i>Species</i> and <i>Pipe Reactions</i>.</p>';
 
   IntroB: String =
-    '<p><i>The <b>Load</b> button loads a previously saved MSX data file into the '+
-    'editor while the <b>Save</b> button saves the editor''s contents to '+
-    'a file. The <b>Clear</b> button clears the editor''s contents. Pressing the '+
-    'down arrow key when in the last row of a data entry grid adds a new row to it. </p>'+
+    '<p>The buttons on the bottom panel execute the following actions:<br>'+
+    '<i>Clear</i> - clears the current contents of the editor.<br>'+
+    '<i>Load</i> - loads a previously saved MSX data file into the editor.<br>'+
+    '<i>Save As</i> - saves the editor''s contents to a new file.<br>'+
+    '<i>Save and Close</i> - saves the editor''s contents to file and closes it.</p>'+
+    'Pressing the down arrow key when in the last row of a data entry grid adds a new row to it.'+
     '<p>More information on building an MSX model, including several examples, can be '+
-    'found <a href="https://epanetmsx2manual.readthedocs.io/en/latest/">here</a>.</i></p>';
+    'found <a href="https://epanetmsx2manual.readthedocs.io/en/latest/">here</a>.</p>';
   
   Instructs: array[1..9] of String =
     ('Provide values for the simulation options listed above. ',
@@ -25,7 +27,7 @@ const
      'different from the pipe expression. ',
      'Define formulas for any intermediate terms used in the '+
      'specie reaction expressions. ',
-     'Assign values for all coefficients (parameters and constants) used in the ' +
+     'Assign global values for all coefficients (parameters and constants) used in the ' +
      'specie reaction expressions. ',
      'Set reaction parameter values for specific pipes and tanks if '+
      'different from the global value. ',
@@ -43,21 +45,3 @@ const
     '<b>Ff</b> - Friction factor<br><br>'+
     '<b>Av</b> - Surface area / volume<br><br>' +
     '<b>Len</b> - Pipe length';
-
-  Math: String =
-  'Math functions (case insensitive) that can be used in a specie''s '+
-  'reaction equations and in any terms they may contain:<br><br>'+
-  '<b>abs(x)</b> - absolute value<br>'+ 
-  '<b>sgn(x)</b> - +1 for x >= 0, -1 otherwise<br>'+ 
-  '<b>step(x)</b> - 0 for x <= 0, 1 otherwise<br>'+ 
-  '<b>sqrt(x)</b> - square root of x<br>'+
-  '<br>log(x)</b> - logaritm base e<br>'+
-  '<b>log10(x)</b> - logarithm base 10<br>'+ 
-  '<b>exp(x)</b> - e raised to the x power<br>'+ 
-  '<b>sin, cos, tan, cot</b><br>'+
-  '<b>asin, acos, atan, acot</b><br>'+
-  '<b>sinh, cosh, tanh, coth</b><br>'+ 
-  '<b>+, -, *, /, ^</b> (for exponentiation)<br>'+
-  'and any level of nested parentheses.';
-
-

@@ -1,8 +1,8 @@
 <doc>
-    <titleimg>images/logo.gif</titleimg>
-    <title>EPANET</title>
-    <url>https://www.epa.gov/water-research/epanet</url>
-    <version>2.3</version>
+    <titleimg></titleimg>
+    <title>EPANET-UI</title>
+    <url>https://github.com/openwateranalytics/epanet</url>
+    <version></version>
     <theme>manual.css</theme>
     <lang>en</lang>
     <rslt>Search Results</rslt>
@@ -18,7 +18,7 @@
     <warn>Warning</warn>
     <prev>Previous</prev>
     <next>Next</next>
-    <copy>U.S. Environmental Protection Agency</copy>
+    <copy>2025</copy>
 </doc>
 <include intro.md>
 <include workspace.md>
@@ -32,11 +32,13 @@
 <include quality.md>
 <include analysis.md>
 <include results.md>
+<include fireflow.md>
 <include faq.md>
 <cap>REFERENCE</cap>
 <include nodes.md>
 <include links.md>
 <include labels.md>
 <include dialogs.md>
+<include tables.md>
 <include units.md>
 <include errors.md>

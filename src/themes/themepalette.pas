@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.0
  Module:       themepalette
  Description:  a dialog form that selects a color palette used
                to display a theme on the pipe network map
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit themepalette;
@@ -140,7 +138,9 @@ const
 
 procedure TThemePaletteForm.FormCreate(Sender: TObject);
 var
-  I, J, K: Integer;
+  I: Integer;
+  J: Integer;
+  K: Integer;
 begin
   Font.Size := config.FontSize;
   Color := config.ThemeColor;
@@ -148,14 +148,15 @@ begin
   begin
     K := MAXCOLOR * (I - 1);
     for J := 1 to MAXCOLOR do
-      with FindComponent('Box' + IntToStr(K+J)) as TShape do
+      with FindComponent('Box' + IntToStr(K + J)) as TShape do
         Brush.Color := SchemeColors[I,J];
   end;
 end;
 
 procedure TThemePaletteForm.Button1Click(Sender: TObject);
 var
-  I, J: Integer;
+  I: Integer;
+  J: Integer;
 begin
   for I := 1 to MAXSCHEME do
   begin

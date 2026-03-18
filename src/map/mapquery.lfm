@@ -1,18 +1,16 @@
 object MapQueryFrame: TMapQueryFrame
   Left = 0
-  Height = 238
+  Height = 198
   Top = 0
   Width = 239
-  ClientHeight = 238
+  ClientHeight = 198
   ClientWidth = 239
-  Color = clCream
-  ParentBackground = False
-  ParentColor = False
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
   DesignLeft = 1469
   DesignTop = 662
   object Label1: TLabel
-    Left = 26
+    Left = 16
     Height = 15
     Top = 43
     Width = 23
@@ -36,7 +34,7 @@ object MapQueryFrame: TMapQueryFrame
     OnChange = FindCbxChange
   end
   object Label2: TLabel
-    Left = 26
+    Left = 16
     Height = 15
     Top = 84
     Width = 23
@@ -53,10 +51,10 @@ object MapQueryFrame: TMapQueryFrame
     TabOrder = 1
   end
   object ConditionCbx: TComboBox
-    Left = 64
+    Left = 16
     Height = 24
     Top = 117
-    Width = 129
+    Width = 80
     ItemHeight = 18
     ItemIndex = 0
     Items.Strings = (
@@ -69,29 +67,27 @@ object MapQueryFrame: TMapQueryFrame
     Text = 'below'
   end
   object ValueEdit: TEdit
-    Left = 64
+    Left = 113
     Height = 23
-    Top = 159
-    Width = 104
+    Top = 118
+    Width = 80
     TabOrder = 3
     OnChange = ValueEditChange
-    OnClick = TargetChange
     OnKeyDown = ValueEditKeyDown
   end
   object ResultPanel: TPanel
-    Left = 64
+    Left = 16
     Height = 25
-    Top = 197
-    Width = 145
+    Top = 158
+    Width = 170
     Alignment = taLeftJustify
     BevelOuter = bvNone
-    Caption = '0 items found'
+    Caption = '99999 items found'
     Font.Color = clRed
     Font.Style = [fsBold]
     ParentBackground = False
     ParentFont = False
-    TabOrder = 5
-    OnClick = ResultPanelClick
+    TabOrder = 4
   end
   object TopPanel: TPanel
     Left = 0
@@ -102,18 +98,15 @@ object MapQueryFrame: TMapQueryFrame
     Caption = 'Map Query'
     ClientHeight = 28
     ClientWidth = 239
-    Color = 16316664
     Font.Style = [fsBold]
-    ParentBackground = False
-    ParentColor = False
     ParentFont = False
-    TabOrder = 6
+    TabOrder = 5
     object CloseBtn: TSpeedButton
-      Left = 215
-      Height = 20
+      Left = 209
+      Height = 26
       Hint = 'Close'
       Top = 2
-      Width = 20
+      Width = 26
       Anchors = [akTop, akRight]
       AutoSize = True
       Flat = True
@@ -174,22 +167,10 @@ object MapQueryFrame: TMapQueryFrame
       Images = mainForm.WindowImageList
       ImageIndex = 1
       ImageWidth = 16
-      OnClick = CloseBtnClick
       ShowCaption = False
       ShowHint = True
       ParentShowHint = False
+      OnClick = CloseBtnClick
     end
-  end
-  object FindBtn: TBitBtn
-    Left = 188
-    Height = 30
-    Top = 156
-    Width = 30
-    GlyphShowMode = gsmAlways
-    Layout = blGlyphRight
-    Images = mainForm.WindowImageList
-    ImageIndex = 7
-    OnClick = FindBtnClick
-    TabOrder = 4
   end
 end
