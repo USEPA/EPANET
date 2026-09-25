@@ -1,0 +1,23 @@
+object OverviewMapFrame: TOverviewMapFrame
+  Left = 0
+  Height = 240
+  Top = 0
+  Width = 320
+  ClientHeight = 240
+  ClientWidth = 320
+  LCLVersion = '4.4.0.0'
+  TabOrder = 0
+  DesignLeft = 1518
+  DesignTop = 570
+  object PaintBox1: TPaintBox
+    Left = 0
+    Height = 212
+    Top = 28
+    Width = 320
+    Align = alClient
+    OnMouseDown = PaintBox1MouseDown
+    OnMouseMove = PaintBox1MouseMove
+    OnMouseUp = PaintBox1MouseUp
+    OnPaint = PaintBox1Paint
+  end
+end

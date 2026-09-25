@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       dxviewer
  Description:  draws pipe network from a DXF file onto a bitmap.
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit dxfviewer;
@@ -18,7 +16,7 @@ interface
 uses
   Classes, SysUtils, Graphics;
 
-function  ViewDxfFile(DxfFileName: String; Layers: TStringList;
+function  ViewDxfFile(DxfFileName: string; Layers: TStringList;
             var Bitmap: TBitmap): Boolean;
 
 implementation
@@ -27,12 +25,14 @@ uses
   project, utils, dxfloader;
 
 var
-  Xmin, Xmax: Double;      // Horizontal world extent
-  Ymin, Ymax: Double;      // Vertical world extent
-  CenterP:    TPoint;      // Bitmap center point
-  CenterWx:   Double;      // World center X point
-  CenterWy:   Double;      // World center Y point
-  WPP:        Double;      // World per pixel scaling
+  Xmin:     Double;
+  Xmax:     Double;  // Horizontal world extent
+  Ymin:     Double;
+  Ymax:     Double;  // Vertical world extent
+  CenterWx: Double;  // World center X point
+  CenterWy: Double;  // World center Y point
+  WPP:      Double;  // World per pixel scaling
+  CenterP:  TPoint;  // Bitmap center point
 
 function GetPoint(const X: Double; const Y: Double):TPoint;
 begin
@@ -42,8 +42,6 @@ end;
 
 procedure DrawLink(var Bitmap: TBitmap; var Vx: array of Double;
             var Vy: array of Double; Vcount: Integer);
-// Draw a network link with vertices in Vx and Vy on the Bitmap;
-
 var
   P: TPoint;
   I: Integer;
@@ -60,9 +58,11 @@ end;
 
 procedure ScaleBitmap(var Bitmap: TBitmap);
 var
-  Dx, Dy, WPPx, WPPy: Double;
+  Dx: Double;
+  Dy: Double;
+  WPPx: Double;
+  WPPy: Double;
 begin
-
   // Center of bounding rectangle
   Dx := Double(Xmax - Xmin);
   Dy := Double(Ymax - Ymin);
@@ -77,36 +77,31 @@ begin
   // Maintain a 1:1 aspect ratio
   if WPPy > WPPx then WPP := WPPy
   else WPP := WPPx;
-
 end;
 
 function ReadXY(var F: TextFile; var X: Double; var Y: Double): Boolean;
-// Read X,Y coordinate values from the extents section of a DXF file.
-
 var
   Code: Integer;
-  S: String;
+  S: string;
 begin
-  Result := False;
+  Result := false;
   ReadLn(F, Code);
   ReadLn(F, S);
   if not utils.Str2Float(S, X) then exit;
   ReadLn(F, Code);
   ReadLn(F, S);
   if not utils.Str2Float(S, Y) then exit;
-  Result := True;
+  Result := true;
 end;
 
 function GetExtents(var F: TextFile): Boolean;
-// Extract the extents of a drawing contained in a DXF file.
-
 var
-  ExtMinFound: Boolean = False;
-  ExtMaxFound: Boolean = False;
+  ExtMinFound: Boolean = false;
+  ExtMaxFound: Boolean = false;
   Code: Integer;
-  Value: String;
+  Value: string;
 begin
-  Result := False;
+  Result := false;
   while not Eof(F) do
   begin
     ReadLn(F, Code);
@@ -117,19 +112,18 @@ begin
         ExtMinFound := ReadXY(F, Xmin, Ymin)
       else if SameText(Value, '$EXTMAX') then
         ExtMaxFound := ReadXY(F, Xmax, Ymax);
-      if ExtMinFound and ExtMaxFound then
+      if ExtMinFound
+      and ExtMaxFound then
       begin
-        Result := True;
+        Result := true;
         exit;
       end;
     end;
   end;
 end;
 
-function  ViewDxfFile(DxfFileName: String; Layers: TStringList;
+function  ViewDxfFile(DxfFileName: string; Layers: TStringList;
   var Bitmap: TBitmap): Boolean;
-// Draw the pipe network extracted from a DXF file onto a bitmap.
-
 var
   F: TextFile;
   Vx: array[0..Project.MAX_VERTICES] of Double;
@@ -137,9 +131,11 @@ var
   Vcount: Integer;
 begin
   // Check for valid bitmap object
-  Result := False;
+  Result := false;
   if Bitmap = nil then exit;
-  if (Bitmap.Width = 0) or (Bitmap.Height = 0) then exit;
+  if (Bitmap.Width = 0)
+  or (Bitmap.Height = 0) then
+    exit;
 
   // Process the DXF file
   AssignFile(F, DxfFileName);
@@ -167,7 +163,7 @@ begin
       dxfloader.GetLinkVertices(F, Layers, Vx, Vy, Vcount);
       DrawLink(Bitmap, Vx, Vy, Vcount);
     end;
-    Result := True;
+    Result := true;
   finally
     CloseFile(F);
   end;

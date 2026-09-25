@@ -1,26 +1,25 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       editor
  Description:  edits the properties of a project's objects
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
+
+unit editor;
+
 {
  This unit works directly with the PropEditor control that appears on
  the main form's ProjectFrame.
 }
-
-unit editor;
 
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, Dialogs, ValEdit, Controls;
+  Classes, SysUtils, Dialogs, ValEdit, Controls, LCLIntf, LCLtype, FileUtil;
 
 var
   FirstResultRow: Integer;  // Row of the PropEditor where results are listed
@@ -30,16 +29,18 @@ procedure EditTitleText;
 procedure ButtonClick(const Category: Integer; const Item: Integer;
           const Prop: Integer);
 function  Validate(const Category: Integer; const Item: Integer;
-          const Prop: Integer; const OldValue: String; var NewValue: String): Boolean;
+          const Prop: Integer; const OldValue: string; var NewValue: string): Boolean;
 procedure PasteProperties(const Category: Integer; const ItemType: Integer;
           const Item: Integer);
+procedure AdjustValveProperties(S: string);
 
 implementation
 
 uses
   main, project, projectframe, titleeditor, demandseditor, sourceeditor,
-  controlseditor, ruleseditor, curveselector, patternselector, qualeditor,
-  msxeditor, maplabel, mapthemes, properties, validator, epanet2;
+  controlseditor, ruleseditor, curveeditor, patterneditor, qualeditor,
+  msxeditor, labeleditor, maplabel, mapthemes, properties, validator, epanet2,
+  resourcestrings;
 
 procedure EditDemands(const Index: Integer); forward;
 procedure EditSourceQuality(const Index: Integer; const Row: Integer); forward;
@@ -66,14 +67,18 @@ procedure EditPipe(const Index: Integer); forward;
 procedure EditPump(const Index: Integer); forward;
 procedure EditValve(const Index: Integer); forward;
 
+procedure EditPatterns; forward;
+procedure EditCurves; forward;
 procedure EditControls(const Item: Integer); forward;
 procedure EditLabel(const Item: Integer); forward;
+
+function  GetDescription(S: string): string; forward;
 
 procedure OptionButtonClick(const Item: Integer; const Prop: Integer); forward;
 procedure NodeButtonClick(const Item: Integer; const Prop: Integer); forward;
 procedure LinkButtonClick(const Item: Integer; const Prop: Integer); forward;
-function  GetPatternSelection(PropIndex: Integer; PropValue: String): Integer; forward;
-function  GetCurveSelection(PropIndex: Integer; PropValue: String): Integer; forward;
+function  GetPatternSelection(PropIndex: Integer; PropValue: string): Integer; forward;
+function  GetCurveSelection(PropIndex: Integer; PropValue: string): Integer; forward;
 
 procedure ShowEditor(State: Boolean);
 begin
@@ -81,95 +86,124 @@ begin
 end;
 
 procedure Edit(const Category: Integer; Item: Integer);
-//
-//  Loads properties of a selected network object into the PropEditor.
-//
 begin
   FirstResultRow := 0;
   case Category of
-    cOptions:  EditOptions(Item);
-    cNodes:    EditNode(Item);
-    cLinks:    EditLink(Item);
-    cControls: EditControls(Item);
-    cLabels:   EditLabel(Item);
-    else ShowEditor(false);
+    ctOptions:
+      EditOptions(Item);
+    ctNodes:
+      EditNode(Item);
+    ctLinks:
+      EditLink(Item);
+    ctControls:
+      EditControls(Item);
+    ctPatterns:
+      EditPatterns;
+    ctCurves:
+      EditCurves;
+    ctLabels:
+      EditLabel(Item);
+    else
+      ShowEditor(false);
   end;
 end;
 
 procedure ButtonClick(const Category: Integer; const Item: Integer;
           const Prop: Integer);
 //
-// Selects a specialized editor to launch when an ellipsis button
+// Select a specialized editor to launch when an ellipsis button
 // in the PropEditor is clicked.
 //
 begin
   case Category of
-    cNodes:
+    ctNodes:
       NodeButtonClick(Item, Prop);
-    cLinks:
+    ctLinks:
       LinkButtonClick(Item, Prop);
-    cControls:
-      if Prop = 1 then EditSimpleControls else EditRuleControls;
-    cLabels:
+    ctControls:
+      if Prop = 1 then
+        EditSimpleControls
+      else
+        EditRuleControls;
+    ctLabels:
       EditLabelFont(Item);
-    cOptions:
+    ctOptions:
       OptionButtonClick(Item, Prop);
   end;
 
   // Move to next row of Property Editor after done with specialized editor
   with MainForm.ProjectFrame.PropEditor do
   begin
-    if Prop = RowCount -1 then Row := Prop-1 else Row := Prop+1;
+    if Prop = RowCount -1 then
+      Row := Prop-1
+    else
+      Row := Prop+1;
   end;
 end;
 
 procedure OptionButtonClick(const Item: Integer; const Prop: Integer);
-// Handles ellipsis button clicks when editing Option properties
 var
   I: Integer;
-  PropName, S: String;
+  S: string;
+  PropName: string;
 begin
   PropName := MainForm.ProjectFrame.PropEditor.Cells[0,Prop];
-  if PropName = 'Price Pattern' then
+  if PropName = rsPricePattern then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetPatternSelection(Prop, S);
     if I >= 0 then ENsetoption(EN_GLOBALPATTERN, I);
   end
-  else if PropName = 'Default Pattern' then
+  else if PropName = rsDefPattern then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetPatternSelection(Prop, S);
     if I >= 0 then ENsetoption(EN_DEMANDPATTERN, I);
   end
-  else if Item = oQuality then
+  else if Item = otQuality then
   begin
-    if PropName = 'Single-Species' then EditSingleSpecieQuality;
-    if PropName = 'Multi-Species' then  EditMultiSpeciesQuality;
-    MainForm.UpdateStatusBar(sbQuality, Project.GetQualModelStr);
+    if PropName = rsSingleSpecies then EditSingleSpecieQuality;
+    if PropName = rsMultiSpecies then  EditMultiSpeciesQuality;
+    MainForm.UpdateStatusBar(sbQuality, project.GetQualModelStr);
   end;
 end;
 
 procedure NodeButtonClick(const Item: Integer; const Prop: Integer);
-// Handles ellipsis button clicks when editing Node properties
 var
   I: Integer;
-  PropName, S: String;
+  PropName: string;
+  S: string;
 begin
   PropName := MainForm.ProjectFrame.PropEditor.Cells[0,Prop];
 
-  if PropName = 'Demand Categories' then EditDemands(Item+1)
+  if PropName = rsDescription then
+  begin
+    with MainForm.ProjectFrame.PropEditor do
+    begin
+      S := Cells[1,Prop];
+      S := GetDescription(S);
+      if Cells[1,Prop] <> S then
+      begin
+        EditorMode := false;
+        Cells[1,Prop] := S;
+        EditorMode := true;
+        ENsetcomment(EN_NODE, Item+1, PAnsiChar(S));
+        project.HasChanged := true;
+      end;
+    end;
+  end;
 
-  else if PropName = 'Source Quality' then EditSourceQuality(Item+1, Prop)
-
-  else if PropName = 'Volume Curve' then
+  if PropName = rsDmndCategories then
+    EditDemands(Item+1)
+  else if PropName = rsSourceQuality then
+    EditSourceQuality(Item+1, Prop)
+  else if PropName = rsVolumeCurve then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetCurveSelection(Prop, S);
     if I >= 0 then ENsetnodevalue(Item+1, EN_VOLCURVE, I);
   end
-
-  else if (PropName = 'Demand Pattern') or (PropName = 'Elev. Pattern') then
+  else if (PropName = rsDemandPattern) or (PropName = rsElevPattern) then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetPatternSelection(Prop, S);
@@ -178,129 +212,169 @@ begin
 end;
 
 procedure LinkButtonClick(const Item: Integer; const Prop: Integer);
-// Handles ellipsis button clicks when editing Link properties
 var
   I: Integer;
-  PropName, S: String;
+  S: string;
+  PropName: string;
 begin
   PropName := MainForm.ProjectFrame.PropEditor.Cells[0,Prop];
-
-  if PropName = 'Pump Curve' then
+  if PropName = rsDescription then
+  begin
+    with MainForm.ProjectFrame.PropEditor do
+    begin
+      S := Cells[1,Prop];
+      S := GetDescription(S);
+      if Cells[1,Prop] <> S then
+      begin
+        EditorMode := false;
+        Cells[1,Prop] := S;
+        EditorMode := true;
+        ENsetcomment(EN_Link, Item+1, PAnsiChar(S));
+        project.HasChanged := true;
+      end;
+    end;
+  end;
+  if PropName = rsPumpCurve then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetCurveSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_PUMP_HCURVE, I);
   end
-
-  else if PropName = 'Speed Pattern' then
+  else if PropName = rsSpeedPattern then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetPatternSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_LINKPATTERN, I);
   end
-
-  else if PropName = 'Effic. Curve' then
+  else if PropName = rsEfficCurve then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetCurveSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_PUMP_ECURVE, I);
   end
-
-  else if PropName = 'Price Pattern' then
+  else if PropName = rsPricePattern then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetPatternSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_PUMP_EPAT, I);
   end
-
-  else if PropName = 'PCV Curve' then
+  else if PropName = rsPcvCurve then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetCurveSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_PCV_CURVE, I);
   end
-
-  else if PropName = 'GPV Curve' then
+  else if PropName = rsGpvCurve then
   begin
     S := MainForm.ProjectFrame.PropEditor.Cells[1,Prop];
     I := GetCurveSelection(Prop, S);
     if I >= 0 then ENsetlinkvalue(Item+1, EN_GPV_CURVE, I);
   end;
-
 end;
 
-function GetCurveSelection(PropIndex: Integer; PropValue: String): Integer;
+procedure EditCurves;
 var
-  CurveSelectForm: TCurveSelectorForm;
+  CurveEditorForm: TCurveEditorForm;
 begin
-  Result := -1;
-  CurveSelectForm := TCurveSelectorForm.Create(MainForm);
+  CurveEditorForm := TCurveEditorForm.Create(MainForm);
   try
-    CurveSelectForm.Setup(PropValue);
-    CurveSelectForm.ShowModal;
-    if CurveSelectForm.ModalResult = mrOK then
-    begin
-      with MainForm.ProjectFrame.PropEditor do
-        if Cells[1,PropIndex] <> CurveSelectForm.SelectedName then
-        begin
-          EditorMode := False;
-          Cells[1,PropIndex] := CurveSelectForm.SelectedName;
-          EditorMode := True;
-          project.HasChanged := True;
-        end;
-      Result := CurveSelectForm.SelectedIndex;
-    end;
+    CurveEditorForm.Setup('');
+    CurveEditorForm.ShowModal;
   finally
-    CurveSelectForm.Free;
+    CurveEditorForm.Free;
   end;
 end;
 
-function GetPatternSelection(PropIndex: Integer; PropValue: String): Integer;
+function GetCurveSelection(PropIndex: Integer; PropValue: string): Integer;
 var
-  PatSelectForm: TPatternSelectorForm;
+  CurveEditorForm: TCurveEditorForm;
 begin
   Result := -1;
-  PatSelectForm := TPatternSelectorForm.Create(MainForm);
+  CurveEditorForm := TCurveEditorForm.Create(MainForm);
   try
-    PatSelectForm.Setup(PropValue);
-    PatSelectForm.ShowModal;
-    if PatSelectForm.ModalResult = mrOK then
+    CurveEditorForm.Setup(PropValue);
+    CurveEditorForm.ShowModal;
+    if CurveEditorForm.ModalResult = mrOK then
     begin
       with MainForm.ProjectFrame.PropEditor do
-        if Cells[1,PropIndex] <> PatSelectForm.SelectedName then
+      begin
+        if Cells[1,PropIndex] <> CurveEditorForm.SelectedName then
         begin
-          EditorMode := False;
-          Cells[1,PropIndex] := PatSelectForm.SelectedName;
-          EditorMode := True;
-          project.HasChanged := True;
+          EditorMode := false;
+          Cells[1,PropIndex] := CurveEditorForm.SelectedName;
+          EditorMode := true;
+          project.HasChanged := true;
         end;
-      Result := PatSelectForm.SelectedIndex;
+      end;
+      Result := CurveEditorForm.SelectedIndex;
     end;
   finally
-    PatSelectForm.Free;
+    CurveEditorForm.Free;
+  end;
+end;
+
+procedure EditPatterns;
+var
+  PatternEditorForm: TPatternEditorForm;
+begin
+  PatternEditorForm := TPatternEditorForm.Create(MainForm);
+  try
+    PatternEditorForm.Setup('');
+    PatternEditorForm.ShowModal;
+  finally
+    PatternEditorForm.Free;
+  end;
+end;
+
+function GetPatternSelection(PropIndex: Integer; PropValue: string): Integer;
+var
+  PatternEditorForm: TPatternEditorForm;
+begin
+  Result := -1;
+  PatternEditorForm := TPatternEditorForm.Create(MainForm);
+  try
+    PatternEditorForm.Setup(PropValue);
+    PatternEditorForm.ShowModal;
+    if PatternEditorForm.ModalResult = mrOK then
+    begin
+      with MainForm.ProjectFrame.PropEditor do
+      begin
+        if Cells[1,PropIndex] <> PatternEditorForm.SelectedName then
+        begin
+          EditorMode := false;
+          Cells[1,PropIndex] := PatternEditorForm.SelectedName;
+          EditorMode := true;
+          project.HasChanged := true;
+        end;
+      end;
+      Result := PatternEditorForm.SelectedIndex;
+    end;
+  finally
+    PatternEditorForm.Free;
   end;
 end;
 
 function Validate(const Category: Integer; const Item: Integer;
-  const Prop: Integer; const OldValue: String; var NewValue: String): Boolean;
-//
-// Validates an edit made in the PropEditor
-//
+  const Prop: Integer; const OldValue: string; var NewValue: string): Boolean;
 begin
-  Result := True;
+  Result := true;
   if NewValue = OldValue then exit;
-  validator.HasChanged := True;
-  validator.IsValid := True;
+  validator.HasChanged := true;
+  validator.IsValid := true;
   case Category of
-    cOptions:  validator.ValidateOption(Item, Prop, OldValue, NewValue);
-    cNodes:    validator.ValidateNode(Item, Prop, OldValue, NewValue);
-    cLinks:    validator.ValidateLink(Item, Prop, OldValue, NewValue);
-    cLabels:   validator.ValidateLabel(Item, Prop, OldValue, NewValue);
+    ctOptions:
+      validator.ValidateOption(Item, Prop, OldValue, NewValue);
+    ctNodes:
+      validator.ValidateNode(Item, Prop, OldValue, NewValue);
+    ctLinks:
+      validator.ValidateLink(Item, Prop, OldValue, NewValue);
+    ctLabels:
+      validator.ValidateLabel(Item, Prop, OldValue, NewValue);
   end;
   if validator.HasChanged then
   begin
-    project.HasChanged := True;
-    if Category <> cLabels then project.UpdateResultsStatus;
+    project.HasChanged := true;
+    if Category <> ctLabels then project.UpdateResultsStatus;
   end;
   Result := validator.IsValid;
 end;
@@ -310,7 +384,9 @@ begin
   with TTitleEditorForm.Create(MainForm) do
   try
     ShowModal;
-    if (ModalResult = mrOk) and HasChanged then project.HasChanged := True;
+    if (ModalResult = mrOk)
+    and HasChanged then
+      project.HasChanged := true;
   finally
     Free;
   end;
@@ -320,15 +396,16 @@ procedure EditDemands(const Index: Integer);
 var
   Count: string = '';
   D1: string = '';
-  P1: String = '';
+  P1: string = '';
 begin
   with TDemandsEditorForm.Create(MainForm) do
   try
     LoadDemands(Index);
     ShowModal;
-    if (ModalResult = mrOk) and hasChanged then
+    if (ModalResult = mrOk)
+    and hasChanged then
     begin
-      project.HasChanged := True;
+      project.HasChanged := true;
       project.UpdateResultsStatus;
     end;
 
@@ -337,12 +414,12 @@ begin
     // the total number of demands
     with MainForm.ProjectFrame.PropEditor do
     begin
-      EditorMode := False;
+      EditorMode := false;
       GetPrimaryDemandInfo(D1, P1, Count);
       Cells[1,5] := D1;
       Cells[1,6] := P1;
       Cells[1,7] := Count;
-      EditorMode := True;
+      EditorMode := true;
     end;
   finally
     Free;
@@ -365,17 +442,21 @@ begin
       with MainForm.ProjectFrame.PropEditor do
       begin
         EditorMode := False;
-        if QualType = 0 then Cells[1,1] := 'No'
-        else Cells[1,1] := project.QualModelStr[QualType];
-        Cells[1,2] := 'No';
-        project.MsxInpFile := '';
+        if QualType = 0 then
+          Cells[1,1] := rsNo
+        else
+          Cells[1,1] := project.QualModelStr[QualType];
+        Cells[1,2] := rsNo;
         EditorMode := True;
         if HasChanged then
         begin
-          project.HasChanged := True;
+          project.HasChanged := true;
           project.UpdateResultsStatus;
         end;
       end;
+      if project.MsxFlag then
+        project.HasChanged := true;
+      project.MsxFlag := false;
     end;
   finally
     Free;
@@ -384,23 +465,58 @@ end;
 
 procedure EditMultiSpeciesQuality;
 var
-  S: String;
+  MsxFile:     string;
+  ChangesMade: Boolean = false;
 begin
   with TMsxEditorForm.Create(MainForm) do
   try
+    SetMsxFile(project.MsxInpFile);
     ShowModal;
-    with MainForm.ProjectFrame.PropEditor do
+    if ModalResult = mrOK then
     begin
-      EditorMode := False;
-      if Length(project.MsxInpFile) > 0 then
+      // MsxFile is empty - switch to single species
+      GetMsxFile(MsxFile);
+      if (Length(MsxFile) = 0) then
       begin
-        Cells[1,1] := 'No';
-        Cells[1,2] := 'Yes';
-        epanet2.ENsetqualtype(0, '', '', '');
+        if MsxFlag then ChangesMade := true;
+        MsxFlag := false;
+        MsxInpFile := MsxFile;
       end
-      else
-        Cells[1,2] := 'No';
-      EditorMode := True;
+
+      // MsxFile <> MsxInpFile or edits were made
+      else if (not SameText(MsxFile, MsxInpFile)) or HasChanged then
+      begin
+        MsxInpFile := MsxFile;
+        ChangesMade := true;
+        MsxFlag := true;
+      end;
+
+      // Update project's HasChanged status
+      if ChangesMade then
+      begin
+        project.HasChanged := true;
+        project.UpdateResultsStatus;
+      end;
+
+      // Update property editor
+      with MainForm.ProjectFrame.PropEditor do
+      begin
+        EditorMode := false;
+        if MsxFlag then
+        begin
+          Cells[1,1] := rsNo;
+          Cells[1,2] := rsYes;
+        end
+        else
+        begin
+          Cells[1,1] := rsNo;
+          Cells[1,2] := rsNo;
+        end;
+        EditorMode := true;
+      end;
+
+      // If in MSX mode then remove any single species choice
+      if MsxFlag then epanet2.ENsetqualtype(0, '', '', '');
     end;
   finally
     Free;
@@ -417,7 +533,7 @@ begin
     begin
       if HasChanged then
       begin
-        project.HasChanged := True;
+        project.HasChanged := true;
         project.UpdateResultsStatus;
       end;
 
@@ -425,9 +541,9 @@ begin
       // displays the source's strength
       with MainForm.ProjectFrame.PropEditor do
       begin
-        EditorMode := False;
+        EditorMode := false;
         Cells[1,Row] := GetSourceStrength;
-        EditorMode := True;
+        EditorMode := true;
       end;
     end;
   finally
@@ -438,11 +554,16 @@ end;
 procedure EditOptions(const Item: Integer);
 begin
   case Item of
-  oHydraul: EditHydraulOptions;
-  oDemands: EditDemandOptions;
-  oQuality: EditQualityOptions;
-  oTimes:   EditTimeOptions;
-  oEnergy:  EditEnergyOptions;
+    otHydraul:
+      EditHydraulOptions;
+    otDemands:
+      EditDemandOptions;
+    otQuality:
+      EditQualityOptions;
+    otTimes:
+      EditTimeOptions;
+    otEnergy:
+      EditEnergyOptions;
   end;
 end;
 
@@ -455,38 +576,24 @@ begin
   try
     with MainForm.ProjectFrame.PropEditor do
     begin
-      properties.GetHydProps;
       Clear;
+      properties.GetHydProps;
       RowCount := 1;
       for I := 1 to High(HydOptionsProps) do
       begin
         Strings.AddPair(HydOptionsProps[I], project.Properties[I]);
       end;
-      OptionList.AddStrings(project.FlowUnitsStr, true);
-      with ItemProps['Flow Units'] do
-      begin
-        EditStyle := esPickList;
-        PickList := OptionList;
-        ReadOnly := true;
-      end;
-      OptionList.AddStrings(project.HLossModelStr, true);
-      with ItemProps['Head Loss Model'] do
-      begin
-        EditStyle := esPickList;
-        PickList := OptionList;
-        ReadOnly := true;
-      end;
       OptionList.Clear;
-      OptionList.Add('Stop');
-      OptionList.Add('Continue');
-      with ItemProps['If Unbalanced'] do
+      OptionList.Add(rsStop);
+      OptionList.Add(rsContinue);
+      with ItemProps[rsUnbalanced] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
       OptionList.AddStrings(project.StatusRptStr, true);
-      with ItemProps['Status Reporting'] do
+      with ItemProps[rsStatusRpt] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
@@ -504,27 +611,27 @@ procedure EditQualityOptions;
 var
   I: Integer;
 begin
-    with MainForm.ProjectFrame.PropEditor do
+  with MainForm.ProjectFrame.PropEditor do
+  begin
+    properties.GetQualProps;
+    Clear;
+    RowCount := 1;
+    for I := 1 to High(properties.QualOptionsProps) do
     begin
-      properties.GetQualProps;
-      Clear;
-      RowCount := 1;
-      for I := 1 to High(properties.QualOptionsProps) do
-      begin
-        Strings.AddPair(properties.QualOptionsProps[I], project.Properties[I]);
-      end;
-      with ItemProps['Single-Species'] do
-      begin
-        EditStyle := esEllipsis;
-        ReadOnly := true;
-      end;
-      with ItemProps['Multi-Species'] do
-      begin
-        EditStyle := esEllipsis;
-        ReadOnly := true;
-      end;
-      Row := 1;
+      Strings.AddPair(properties.QualOptionsProps[I], project.Properties[I]);
     end;
+    with ItemProps[rsSingleSpecies] do
+    begin
+      EditStyle := esEllipsis;
+      ReadOnly := true;
+    end;
+    with ItemProps[rsMultiSpecies] do
+    begin
+      EditStyle := esEllipsis;
+      ReadOnly := true;
+    end;
+    Row := 1;
+  end;
 end;
 
 procedure EditDemandOptions;
@@ -543,21 +650,21 @@ begin
       begin
         Strings.AddPair(properties.DemandOptionsProps[I], project.Properties[I]);
       end;
-      OptionList.Add('DDA');
-      OptionList.Add('PDA');
-      with ItemProps['Demand Model'] do
+      OptionList.Add(rsDDA);
+      OptionList.Add(rsPDA);
+      with ItemProps[rsProjDmndModel] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-      with ItemProps['Default Pattern'] do
+      with ItemProps[rsDefPattern] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
       OptionList.AddStrings(project.NoYesStr, true);
-      with ItemProps['Emitter Backflow'] do
+      with ItemProps[rsEmitBackFlow] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
@@ -578,25 +685,25 @@ var
 begin
   OptionList := TStringList.Create;
   try
-  with MainForm.ProjectFrame.PropEditor do
-  begin
-    properties.GetTimeProps;
-    Clear;
-    RowCount := 1;
-    for I := 1 to High(properties.TimeOptionsProps) do
+    with MainForm.ProjectFrame.PropEditor do
     begin
-      Strings.AddPair(properties.TimeOptionsProps[I], project.Properties[I]);
+      properties.GetTimeProps;
+      Clear;
+      RowCount := 1;
+      for I := 1 to High(properties.TimeOptionsProps) do
+      begin
+        Strings.AddPair(properties.TimeOptionsProps[I], project.Properties[I]);
+      end;
+      OptionList.AddStrings(project.StatisticStr, true);
+      with ItemProps[rsStatistic] do
+      begin
+        EditStyle := esPickList;
+        PickList := OptionList;
+        ReadOnly := true;
+      end;
+      Row := 1;
+      Show;
     end;
-    OptionList.AddStrings(project.StatisticStr, true);
-    with ItemProps['Statistic'] do
-    begin
-      EditStyle := esPickList;
-      PickList := OptionList;
-      ReadOnly := true;
-    end;
-    Row := 1;
-    Show;
-  end;
   finally
     OptionList.Free;
   end;
@@ -615,13 +722,11 @@ begin
     begin
       Strings.AddPair(properties.EnergyOptionsProps[I], project.Properties[I]);
     end;
-
-    with ItemProps['Price Pattern'] do
+    with ItemProps[rsPricePattern] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
     Row := 1;
     Show;
   end;
@@ -638,11 +743,13 @@ begin
   Index := Item+1;
   NodeType := project.GetNodeType(Index);
   case NodeType of
-    nJunction:  EditJunction(Index);
-    nReservoir: EditReservoir(Index);
-    nTank:      EditTank(Index);
+    ntJunction:
+      EditJunction(Index);
+    ntReservoir:
+      EditReservoir(Index);
+    ntTank:
+      EditTank(Index);
   end;
-
   with MainForm.ProjectFrame.PropEditor do
   begin
     if RowCount >= CurrentRow then
@@ -651,7 +758,6 @@ begin
       Row := 1;
     Show;
   end;
-
 end;
 
 procedure EditJunction(const Index: Integer);
@@ -663,31 +769,31 @@ begin
   begin
     properties.GetJuncProps(Index);
     Clear;
-
     RowCount := 1;
     for I := 1 to High(properties.JunctionProps) do
     begin
       Strings.AddPair(properties.JunctionProps[I], project.Properties[I]);
     end;
-
-    with ItemProps['Demand Pattern'] do
+    with ItemProps[rsDescription] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
-    with ItemProps['Demand Categories'] do
+    with ItemProps[rsDemandPattern] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
-    with ItemProps['Source Quality'] do
+    with ItemProps[rsDmndCategories] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
+    with ItemProps[rsSourceQuality] do
+    begin
+      EditStyle := esEllipsis;
+      ReadOnly := true;
+    end;
     for I := FirstResultRow to High(properties.JunctionProps) do
       ItemProps[properties.JunctionProps[I]].ReadOnly := true;
   end;
@@ -702,25 +808,26 @@ begin
   begin
     properties.GetResvProps(Index);
     Clear;
-
     RowCount := 1;
     for I := 1 to High(properties.ReservoirProps) do
     begin
       Strings.AddPair(properties.ReservoirProps[I], project.Properties[I]);
     end;
-
-    with ItemProps['Elev. Pattern'] do
+    with ItemProps[rsDescription] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
-    with ItemProps['Source Quality'] do
+    with ItemProps[rsElevPattern] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
-
+    with ItemProps[rsSourceQuality] do
+    begin
+      EditStyle := esEllipsis;
+      ReadOnly := true;
+    end;
     for I := FirstResultRow to High(properties.ReservoirProps) do
       ItemProps[properties.ReservoirProps[I]].ReadOnly := true;
   end;
@@ -743,35 +850,35 @@ begin
       begin
         Strings.AddPair(properties.TankProps[I], project.Properties[I]);
       end;
-
-      with ItemProps['Volume Curve'] do
+    with ItemProps[rsDescription] do
+    begin
+      EditStyle := esEllipsis;
+      ReadOnly := true;
+    end;
+      with ItemProps[rsVolumeCurve] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
       OptionList.AddStrings(project.NoYesStr, true);
-      with ItemProps['Can Overflow'] do
+      with ItemProps[rsCanOverflow] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
       OptionList.AddStrings(project.MixingModelStr, true);
-      with ItemProps['Mixing Model'] do
+      with ItemProps[rsMixingModel] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
-      with ItemProps['Source Quality'] do
+      with ItemProps[rsSourceQuality] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
       for I := FirstResultRow to High(properties.TankProps) do
         ItemProps[properties.TankProps[I]].ReadOnly := true;;
     end;
@@ -791,10 +898,13 @@ begin
   Index := Item+1;
   LinkType := project.GetLinkType(Index);
   case LinkType of
-    lCVPipe,
-    lPipe:  EditPipe(Index);
-    lPump:  EditPump(Index);
-    lValve: EditValve(Index);
+    ltCVPipe,
+    ltPipe:
+      EditPipe(Index);
+    ltPump:
+      EditPump(Index);
+    ltValve:
+      EditValve(Index);
   end;
   with MainForm.ProjectFrame.PropEditor do
   begin
@@ -824,13 +934,17 @@ begin
         Strings.AddPair(properties.PipeProps[I], project.Properties[I]);
       end;
       OptionList.AddStrings(project.StatusStr, true);
-      with ItemProps['Initial Status'] do
+      with ItemProps[rsDescription] do
+      begin
+        EditStyle := esEllipsis;
+        ReadOnly := true;
+      end;
+      with ItemProps[rsInitialStatus] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
       for I := FirstResultRow to High(properties.PipeProps) do
       begin
         ItemProps[properties.PipeProps[I]].ReadOnly := true;
@@ -853,46 +967,44 @@ begin
     begin
       properties.GetPumpProps(Index);
       Clear;
-
       RowCount := 1;
       for I := 1 to High(properties.PumpProps) do
       begin
         Strings.AddPair(properties.PumpProps[I], project.Properties[I]);
       end;
-
-      with ItemProps['Pump Curve'] do
+      with ItemProps[rsDescription] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
-      with ItemProps['Speed Pattern'] do
+      with ItemProps[rsPumpCurve] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
+      with ItemProps[rsSpeedPattern] do
+      begin
+        EditStyle := esEllipsis;
+        ReadOnly := true;
+      end;
       OptionList.Add(project.StatusStr[0]);
       OptionList.Add(project.StatusStr[1]);
-      with ItemProps['Initial Status'] do
+      with ItemProps[rsInitialStatus] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
-      with ItemProps['Effic. Curve'] do
+      with ItemProps[rsEfficCurve] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
-      with ItemProps['Price Pattern'] do
+      with ItemProps[rsPricePattern] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
       for I := FirstResultRow to High(properties.PumpProps) do
       begin
         ItemProps[properties.PumpProps[I]].ReadOnly := true;
@@ -915,88 +1027,96 @@ begin
     begin
       properties.GetValveProps(Index);
       Clear;
-
       RowCount := 1;
       for I := 1 to High(properties.ValveProps) do
       begin
         Strings.AddPair(properties.ValveProps[I], project.Properties[I]);
       end;
-
+      ItemProps[rsSetting].ReadOnly := SameText(project.Properties[7], 'GPV');
       OptionList.AddStrings(project.ValveTypeStr, true);
-      with ItemProps['Valve Type'] do
+      with ItemProps[rsDescription] do
+      begin
+        EditStyle := esEllipsis;
+        ReadOnly := true;
+      end;
+      with ItemProps[rsValveType] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
       OptionList.AddStrings(project.ValveStatusStr, true);
-      with ItemProps['Fixed Status'] do
+      with ItemProps[rsFixedStatus] do
       begin
         EditStyle := esPickList;
         PickList := OptionList;
         ReadOnly := true;
       end;
-
-      with ItemProps['PCV Curve'] do
+      with ItemProps[rsPcvCurve] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
-      with ItemProps['GPV Curve'] do
+      with ItemProps[rsGpvCurve] do
       begin
         EditStyle := esEllipsis;
         ReadOnly := true;
       end;
-
       for I := FirstResultRow to High(properties.ValveProps) do
       begin
         ItemProps[properties.ValveProps[I]].ReadOnly := true;
       end;
     end;
+    AdjustValveProperties(project.Properties[7]);
   finally
     OptionList.Free;
+  end;
+end;
+
+procedure AdjustValveProperties(S: string);
+begin
+  with MainForm.ProjectFrame.PropEditor do
+  begin
+    EditorMode := false;
+    if SameText(S, 'GPV') then
+    begin
+      Cells[1,8] := rsSeeGPVCurve;
+      ItemProps[rsSetting].ReadOnly := true;
+    end
+    else
+    begin
+      Cells[1,8] := project.Properties[8];
+      ItemProps[rsSetting].ReadOnly := false;
+    end;
+    EditorMode := true;
   end;
 end;
 
 procedure EditControls(const Item: Integer);
 begin
   case Item of
-    0: EditSimpleControls;
-    1: EditRuleControls;
+    0:
+      EditSimpleControls;
+    1:
+      EditRuleControls;
   end;
 end;
 
 procedure EditSimpleControls;
 begin
-  with TControlsEditorForm.Create(MainForm) do
-  try
+  with ControlsEditorForm do
+  begin
     LoadControls;
-    ShowModal;
-    if (ModalResult = mrOk) and HasChanged then
-    begin
-      project.HasChanged := True;
-      project.UpdateResultsStatus;
-    end;
-  finally
-    Free;
+    Show;
   end;
 end;
 
 procedure EditRuleControls;
 begin
-  with TRulesEditorForm.Create(MainForm) do
-  try
+  with RulesEditorForm do
+  begin
     LoadRules;
-    ShowModal;
-    if (ModalResult = mrOk) and HasChanged then
-    begin
-      project.HasChanged := True;
-      project.UpdateResultsStatus;
-    end;
-  finally
-    Free;
+    Show;
   end;
 end;
 
@@ -1013,11 +1133,64 @@ begin
     begin
       Strings.AddPair(properties.LabelProps[I], project.Properties[I]);
     end;
-    with ItemProps['Font'] do
+    with ItemProps[rsFont] do
     begin
       EditStyle := esEllipsis;
       ReadOnly := true;
     end;
+  end;
+end;
+
+function GetDescription(S: string): string;
+//
+// Display a LabelEditorForm over the Description field of the
+// PropEditor to provide more space to enter an object's description.
+//
+var
+  LabelEditorForm: TLabelEditorForm;
+  L:               Integer;        // Left of LabelEditorForm
+  T:               Integer;        // Top of LabelEditorForm
+  W:               Integer = 400;  // Width of LabelEditorForm
+  Wsb:             Integer = 0;    // Width of scrollbar
+  P:               TPoint;
+begin
+  // Default result
+  Result := S;
+
+  // Get width of PropEditor's scroll bar if visible
+  with MainForm.ProjectFrame.PropEditor do
+  begin
+    if DefaultRowHeight * RowCount > ClientHeight then
+      Wsb := GetSystemMetrics(SM_CXVSCROLL);
+      T := (Row - TopRow +1) * DefaultRowHeight;
+  end;
+
+  // Position LabelEditorForm so it ends at right side of the PropEditor
+  with MainForm.ProjectFrame do
+    P := ClientToScreen(Point(Width, 0));
+  L := P.X - W - Wsb;
+
+  // Position LabelEditorForm so it starts at top point T of the PropEditor
+  P := MainForm.ProjectFrame.PropEditor.ClientToScreen(Point(0, T));
+  T := P.Y;
+
+  // Create borderless TLabelEditorForm
+  LabelEditorForm := TLabelEditorForm.Create(MainForm.MapFrame);
+  with LabelEditorForm do
+  try
+    // Position the form so it overlays the PropEditor's Description field
+    Left := L;
+    Top := T;
+    Width := W;
+
+    // Initialize the contents of the form's Edit1 control
+    Edit1.MaxLength := epanet2.EN_MAXMSG;
+    Edit1.Text := S;
+
+    // Get user's input
+    if ShowModal = mrOK then Result := Edit1.Text;
+  finally
+    Free;
   end;
 end;
 
@@ -1041,16 +1214,16 @@ end;
 procedure PasteProperties(const Category: Integer; const ItemType: Integer;
   const Item: Integer);
 begin
-  if Category = cNodes then
+  if Category = ctNodes then
   begin
-    properties.PasteNodeProps(Item+1, ItemType);
-    project.HasChanged := True;
+    properties.PasteNodeProps(Item + 1, ItemType);
+    project.HasChanged := true;
     project.UpdateResultsStatus;
   end
-  else if Category = cLinks then
+  else if Category = ctLinks then
   begin
-    properties.PasteLinkProps(Item+1, ItemType);
-    project.HasChanged := True;
+    properties.PasteLinkProps(Item + 1, ItemType);
+    project.HasChanged := true;
     project.UpdateResultsStatus;
   end;
 end;

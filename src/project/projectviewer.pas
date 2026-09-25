@@ -1,17 +1,17 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       projectviewer
  Description:  a form that displays all project data
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit projectviewer;
 
-{ Displays all project data in a read-only table, one section at a time. }
+{
+ Displays all project data in a read-only table, one section at a time.
+}
 
 {$mode objfpc}{$H+}
 
@@ -26,24 +26,29 @@ type
   { TProjectViewerForm }
 
   TProjectViewerForm = class(TForm)
-    ListBox1: TListBox;
-    Panel1: TPanel;
-    Panel2: TPanel;
-    Panel3: TPanel;
-    Splitter1: TSplitter;
+    ListBox1:    TListBox;
+    Panel1:      TPanel;
+    Panel2:      TPanel;
+    Panel3:      TPanel;
+    Panel4:      TPanel;
     StringGrid1: TStringGrid;
+
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
     procedure ListBox1Click(Sender: TObject);
+    procedure StringGrid1GetCellHint(Sender: TObject; ACol, ARow: Integer;
+      var HintText: string);
+
   private
     { private declarations }
     procedure RefreshGrid;
     procedure SetGridColCount;
-    function  StartOfDataSection(SectionName: String): Integer;
+    function  StartOfDataSection(SectionName: string): Integer;
     function  LinesInDataSection(StartLine: Integer): Integer;
-    procedure FillGridRow(Row: Integer; Value: String);
+    procedure FillGridRow(Row: Integer; Value: string);
+
   public
     { public declarations }
   end;
@@ -56,19 +61,19 @@ implementation
 {$R *.lfm}
 
 uses
-  project, config;
+  main, project, config;
 
 const
-  Sections: array[0..22] of String =
+  Sections: array[0..22] of string =
     ('[TITLE]',    '[JUNCTIONS]', '[RESERVOIRS]', '[TANKS]',    '[PIPES]',
      '[PUMPS]',    '[VALVES]',    '[TAGS]',       '[DEMANDS]',  '[EMITTERS]',
      '[LEAKAGE]',  '[STATUS]',   '[PATTERNS]',  '[CURVES]',     '[QUALITY]',
      '[SOURCES]',  '[MIXING]',   '[CONTROLS]',  '[RULES]',      '[REACTIONS]',
      '[ENERGY]',   '[TIMES]',    '[OPTIONS]');
 
-  Headings: array[0..22] of String =
+  Headings: array[0..22] of string =
     ('',
-     'ID'#9'Elev'#9'Demand',
+     'ID'#9'Elev',
      'ID'#9'Head'#9'Pattern',
      'ID'#9'Elev'#9'InitLvl'#9'MinLvl'#9'MaxLvl'#9'Diam'#9'MinVol'#9'Curve'#9'Overflow',
      'ID'#9'Node1'#9'Node2'#9'Length'#9'Diam'#9'Roughness'#9'Mloss'#9'Status',
@@ -84,7 +89,12 @@ const
      'Node'#9'Quality',
      'Node'#9'Type'#9'Strength'#9'Pattern',
      'Tank'#9'Model'#9'MixFrac',
-     '', '', '', '', '', '');
+     '',  //Controls
+     '',  //Rules
+     '',  //Reactions
+     '',  //Energy
+     '',  //Times
+     ''); //Options
 
 
 var
@@ -95,14 +105,22 @@ var
 { TProjectViewerForm }
 
 procedure TProjectViewerForm.FormCreate(Sender: TObject);
-//-----------------------------------------------------------------------------
-//  Form's OnCreate handler.
-//-----------------------------------------------------------------------------
 var
-  I: Integer;
+  I, W: Integer;
 begin
-  Color := Config.ThemeColor;
+  Color := config.FormColor;
+  Font.Size := config.FontSize;
+  StringGrid1.Font.Name := config.MonoFont;
   StringGrid1.AlternateColor := config.AlternateColor;
+  StringGrid1.FixedColor := config.ThemeColor;
+  Panel3.Color := config.ThemeColor;
+  ListBox1.Font.Name := config.MonoFont;
+
+  Left := MainForm.Left + 4;
+  Top := MainForm.MainPanel.ClientToScreen(Point(0,0)).Y;
+  W := MainForm.LeftPanel.Width + MainForm.MapPanel.Width;
+  Width := (W * 96) div Screen.PixelsPerInch;
+  Height := (MainForm.LeftPanel.Height * 96) div Screen.PixelsPerInch;
 
   // S stores the project's data in input file format
   S := TStringList.Create;
@@ -114,22 +132,16 @@ end;
 
 procedure TProjectViewerForm.FormKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
-//-----------------------------------------------------------------------------
-//  Form's OnKeyDown handler.
-//-----------------------------------------------------------------------------
 begin
   if Key = VK_ESCAPE then ModalResult := mrOK;
 end;
 
 procedure TProjectViewerForm.FormShow(Sender: TObject);
-//-----------------------------------------------------------------------------
-//  Form's OnShow handler.
-//-----------------------------------------------------------------------------
 begin
   // Export the project's data to string list S
-  Project.Save(Project.AuxFile);
-  S.LoadFromFile(Project.AuxFile);
-  SysUtils.DeleteFile(AuxFile);
+  project.Save(project.AuxFile);
+  S.LoadFromFile(project.AuxFile);
+  SysUtils.DeleteFile(project.AuxFile);
 
   // Initialize the current data section and list box selection
   Section := -1;
@@ -141,9 +153,6 @@ begin
 end;
 
 procedure TProjectViewerForm.ListBox1Click(Sender: TObject);
-//-----------------------------------------------------------------------------
-//  OnClick handler for the data sections list box.
-//-----------------------------------------------------------------------------
 begin
   with ListBox1 do
   begin
@@ -158,22 +167,24 @@ begin
   end;
 end;
 
+procedure TProjectViewerForm.StringGrid1GetCellHint(Sender: TObject; ACol,
+  ARow: Integer; var HintText: string);
+begin
+  HintText := StringGrid1.Cells[ACol, ARow];
+end;
+
 procedure TProjectViewerForm.FormClose(Sender: TObject; var CloseAction: TCloseAction
   );
-//-----------------------------------------------------------------------------
-//  Form's OnClose handler.
-//-----------------------------------------------------------------------------
 begin
   Line.Free;
   S.Free;
 end;
 
 procedure TProjectViewerForm.RefreshGrid;
-//-----------------------------------------------------------------------------
-//  Displays project data from the current section in the string grid.
-//-----------------------------------------------------------------------------
 var
-  I, K, N: Integer;
+  I: Integer;
+  K: Integer;
+  N: Integer;
 begin
   SetGridColCount;
   I := StartOfDataSection(Listbox1.Items[Section]);
@@ -183,18 +194,19 @@ begin
   if N > 0 then
   begin
     N := 0;
-    for K := I+1 to S.Count-1 do
+    for K := I + 1 to S.Count - 1 do
     begin
       // Stop when next section encountered
       if AnsiLeftStr(S[K], 1) = '[' then break;
       if Length(S[K]) = 0 then continue;
       if AnsiLeftStr(S[K], 2) = ';;' then continue;
       Inc(N);
-      if (StringGrid1.ColCount = 1) or
-         // Place comment in first column
-         (AnsiLeftStr(S[K], 1) = ';')  then
-          StringGrid1.Cells[0, N] := S[K]
-      else FillGridRow(N, S[K]);
+      if (StringGrid1.ColCount = 1)
+      // Place comment in first column
+      or (AnsiLeftStr(S[K], 1) = ';')  then
+        StringGrid1.Cells[0, N] := S[K]
+      else
+        FillGridRow(N, S[K]);
     end;
   end;
 end;
@@ -204,11 +216,13 @@ begin
   with StringGrid1 do
   begin
     Clear;
-    if (Section = 0) or (Section > 13) then
+    if (Section = 0)
+    or (Section > 13) then
     begin
       ColCount := 1;
       Options := Options - [goHorzLine];
-    end else
+    end
+    else
     begin
       ColCount := 9;
       Options := Options + [goHorzLine];
@@ -216,7 +230,7 @@ begin
   end;
 end;
 
-function TProjectViewerForm.StartOfDataSection(SectionName: String): Integer;
+function TProjectViewerForm.StartOfDataSection(SectionName: string): Integer;
 var
   J: Integer;
 begin
@@ -238,7 +252,7 @@ begin
   Result := 0;
   if (StartLine >= 0) then
   begin
-    for K := StartLine+1 to S.Count-1 do
+    for K := StartLine + 1 to S.Count - 1 do
     begin
       if AnsiLeftStr(S[K], 2) = ';;' then continue;
       if Length(S[K]) = 0 then continue;
@@ -248,12 +262,12 @@ begin
   end;
 end;
 
-procedure TProjectViewerForm.FillGridRow(Row: Integer; Value: String);
+procedure TProjectViewerForm.FillGridRow(Row: Integer; Value: string);
 var
   Col : Integer;
 begin
   Line.DelimitedText := Value;
-  for Col := 0 to StringGrid1.ColCount-1 do
+  for Col := 0 to StringGrid1.ColCount - 1 do
     if Col < Line.Count then
       StringGrid1.Cells[Col, Row] := Line[Col];
 end;

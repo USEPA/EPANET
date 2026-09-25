@@ -1,16 +1,16 @@
 object DxfImporterForm: TDxfImporterForm
-  Left = 1422
+  Left = 1418
   Height = 484
-  Top = 354
+  Top = 12
   Width = 460
   BorderStyle = bsDialog
   Caption = 'DXF File Importer'
   ClientHeight = 484
   ClientWidth = 460
+  Position = poMainFormCenter
+  LCLVersion = '4.4.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
-  Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
   object BtnPanel: TPanel
     Left = 0
     Height = 61
@@ -19,56 +19,44 @@ object DxfImporterForm: TDxfImporterForm
     Align = alBottom
     BevelOuter = bvNone
     BorderStyle = bsSingle
-    ClientHeight = 57
-    ClientWidth = 456
+    ClientHeight = 61
+    ClientWidth = 460
     TabOrder = 0
-    object BackBtn: TBitBtn
-      Left = 186
-      Height = 30
-      Top = 17
-      Width = 75
-      Caption = 'Back'
-      GlyphShowMode = gsmAlways
-      ImageIndex = 9
-      OnClick = BackBtnClick
-      TabOrder = 0
-    end
-    object NextBtn: TBitBtn
-      Left = 274
-      Height = 30
-      Top = 17
-      Width = 75
-      Caption = 'Next'
-      GlyphShowMode = gsmAlways
-      Layout = blGlyphRight
-      ImageIndex = 10
-      OnClick = NextBtnClick
-      TabOrder = 1
-    end
-    object CancelBtn: TBitBtn
-      Left = 362
-      Height = 30
-      Top = 17
-      Width = 75
-      Cancel = True
-      Caption = 'Cancel'
-      GlyphShowMode = gsmAlways
-      ModalResult = 2
-      ImageIndex = 11
-      OnClick = CancelBtnClick
-      TabOrder = 2
-    end
-    object ImportBtn: TBitBtn
+    object ImportBtn: TButton
       Left = 96
-      Height = 30
-      Top = 17
+      Height = 25
+      Top = 20
       Width = 75
       Caption = 'Import'
-      GlyphShowMode = gsmAlways
-      ImageIndex = 14
+      TabOrder = 0
       OnClick = ImportBtnClick
+    end
+    object BackBtn: TButton
+      Left = 186
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Back'
+      TabOrder = 1
+      OnClick = BackBtnClick
+    end
+    object NextBtn: TButton
+      Left = 274
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Next'
+      TabOrder = 2
+      OnClick = NextBtnClick
+    end
+    object CancelBtn: TButton
+      Left = 362
+      Height = 25
+      Top = 20
+      Width = 75
+      Caption = 'Cancel'
       TabOrder = 3
-      Visible = False
+      OnClick = CancelBtnClick
     end
   end
   object Notebook1: TNotebook
@@ -76,7 +64,7 @@ object DxfImporterForm: TDxfImporterForm
     Height = 423
     Top = 0
     Width = 460
-    PageIndex = 1
+    PageIndex = 0
     Align = alClient
     TabOrder = 1
     object Page1: TPage
@@ -89,15 +77,15 @@ object DxfImporterForm: TDxfImporterForm
         BevelOuter = bvNone
         BorderStyle = bsSingle
         Caption = 'Panel2'
-        ClientHeight = 419
-        ClientWidth = 166
+        ClientHeight = 423
+        ClientWidth = 170
         ParentBackground = False
         TabOrder = 0
         object Image1: TImage
           Left = 0
-          Height = 419
+          Height = 421
           Top = 0
-          Width = 166
+          Width = 168
           Align = alClient
           Center = True
           Picture.Data = {
@@ -3794,9 +3782,9 @@ object DxfImporterForm: TDxfImporterForm
       end
       object Label1: TLabel
         Left = 199
-        Height = 32
+        Height = 34
         Top = 36
-        Width = 201
+        Width = 211
         Caption = 'DXF File Importer'
         Font.CharSet = ANSI_CHARSET
         Font.Height = -24
@@ -3819,7 +3807,7 @@ object DxfImporterForm: TDxfImporterForm
     object Page2: TPage
       object DxfFileEdit: TEdit
         Left = 77
-        Height = 23
+        Height = 26
         Top = 47
         Width = 273
         ReadOnly = True
@@ -3828,17 +3816,17 @@ object DxfImporterForm: TDxfImporterForm
       end
       object Label5: TLabel
         Left = 77
-        Height = 15
+        Height = 18
         Top = 94
-        Width = 273
+        Width = 318
         Caption = 'Select the drawing layers that contain network links:'
         ParentColor = False
       end
       object Label3: TLabel
         Left = 77
-        Height = 15
+        Height = 18
         Top = 23
-        Width = 237
+        Width = 273
         Caption = 'Select a DXF file containing a network layout:'
         ParentColor = False
       end
@@ -3851,6 +3839,7 @@ object DxfImporterForm: TDxfImporterForm
         ItemHeight = 0
         MultiSelect = True
         TabOrder = 2
+        TopIndex = -1
         OnSelectionChange = LayersCheckListBoxSelectionChange
       end
       object DxfFileBtn: TBitBtn
@@ -3864,18 +3853,18 @@ object DxfImporterForm: TDxfImporterForm
         Images = mainForm.WindowImageList
         ImageIndex = 14
         ImageWidth = 20
-        OnClick = DxfFileBtnClick
         ParentShowHint = False
         ShowHint = True
         TabOrder = 1
+        OnClick = DxfFileBtnClick
       end
     end
     object Page3: TPage
       object Label7: TLabel
         Left = 93
-        Height = 15
+        Height = 18
         Top = 23
-        Width = 265
+        Width = 306
         BorderSpacing.Top = 8
         BorderSpacing.Around = 8
         Caption = 'Provide values for the import options listed below.'
@@ -3884,17 +3873,17 @@ object DxfImporterForm: TDxfImporterForm
       end
       object Label14: TLabel
         Left = 93
-        Height = 15
+        Height = 18
         Top = 62
-        Width = 74
+        Width = 87
         Caption = 'Drawing Units'
         ParentColor = False
       end
       object UnitsCombo: TComboBox
         Left = 242
-        Height = 25
+        Height = 26
         Top = 58
-        Width = 84
+        Width = 104
         ItemHeight = 19
         Items.Strings = (
           'Unknown'
@@ -3906,27 +3895,28 @@ object DxfImporterForm: TDxfImporterForm
       end
       object Label17: TLabel
         Left = 93
-        Height = 15
+        Height = 18
         Top = 104
-        Width = 111
+        Width = 130
         Caption = 'Node Snap Tolerance'
         ParentColor = False
       end
       object SnapTolEdit: TFloatSpinEditEx
         Left = 242
-        Height = 23
+        Height = 26
         Top = 100
         Width = 84
         MaxLength = 0
+        SpinButtonWidth = 17
         TabOrder = 1
         MaxValue = 100
         UpDownVisible = False
       end
       object Label19: TLabel
         Left = 93
-        Height = 15
+        Height = 18
         Top = 147
-        Width = 234
+        Width = 271
         Caption = 'Nodes within snap tolerance will be merged.'
         ParentColor = False
       end
@@ -3987,23 +3977,22 @@ object DxfImporterForm: TDxfImporterForm
       end
       object ComputeLengthsCB: TCheckBox
         Left = 93
-        Height = 19
+        Height = 24
         Top = 234
-        Width = 150
+        Width = 178
         Caption = 'Recompute Pipe Lengths'
         TabOrder = 2
       end
       object AddToProjectCB: TCheckBox
         Left = 93
-        Height = 19
+        Height = 24
         Top = 275
-        Width = 138
+        Width = 163
         Caption = 'Add to Existing Project'
         TabOrder = 3
       end
     end
     object Page4: TPage
-      Color = clWindow
       object PaintBox1: TPaintBox
         Left = 0
         Height = 362
@@ -4028,9 +4017,9 @@ object DxfImporterForm: TDxfImporterForm
         TabOrder = 0
         object Label4: TLabel
           Left = 8
-          Height = 37
+          Height = 39
           Top = 10
-          Width = 440
+          Width = 442
           Align = alClient
           Alignment = taCenter
           BorderSpacing.Top = 2

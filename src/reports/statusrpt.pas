@@ -1,12 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       statusrpt
- Description:  a frame that displays a status report
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  a frame to display a simulation's status report
+               or an opened project file's error/warning report
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit statusrpt;
@@ -24,17 +23,20 @@ type
   { TStatusRptFrame }
 
   TStatusRptFrame = class(TFrame)
-    Memo1: TMemo;
-    MnuSave: TMenuItem;
-    MnuCopy: TMenuItem;
     ExportMenu: TPopupMenu;
-    procedure CloseBtnClick(Sender: TObject);
+    Memo1: TMemo;
+    MnuSave:    TMenuItem;
+    MnuCopy:    TMenuItem;
+
     procedure MnuCopyClick(Sender: TObject);
     procedure MnuSaveClick(Sender: TObject);
+
   private
-    function FindText(Txt: String; StartPos: SizeUint): Integer;
+    function FindText(Txt: string; StartPos: SizeUint): Integer;
 
   public
+    procedure InitReport;
+    procedure CloseReport;
     procedure ClearReport;
     procedure RefreshReport;
     procedure ShowPopupMenu;
@@ -46,9 +48,19 @@ implementation
 {$R *.lfm}
 
 uses
-  project, main;
+  main, project, config, resourcestrings;
+
+procedure TStatusRptFrame.InitReport;
+begin
+  Memo1.Font.Name := config.MonoFont;
+end;
 
 procedure TStatusRptFrame.ClearReport;
+begin
+  Memo1.Clear;
+end;
+
+procedure TStatusRptFrame.CloseReport;
 begin
   Memo1.Clear;
 end;
@@ -58,18 +70,15 @@ begin
   with Memo1 do
   begin
     Clear;
-    if FileExists(Project.AuxFile) then
+    if FileExists(project.AuxFile) then
     begin
-      Lines.LoadFromFile(Project.AuxFile);
-      if Project.RunStatus = rsWarning then FindText('WARNING:', 1)
-      else Memo1.SelStart := 0;
+      Lines.LoadFromFile(project.AuxFile);
+      if project.SimStatus = ssWarning then
+        FindText('WARNING:', 1)
+      else
+        Memo1.SelStart := 0;
     end;
   end;
-end;
-
-procedure TStatusRptFrame.CloseBtnClick(Sender: TObject);
-begin
-  MainForm.ReportFrame.CloseReport;
 end;
 
 procedure TStatusRptFrame.ShowPopupMenu;
@@ -92,20 +101,20 @@ begin
   with MainForm.SaveDialog1 do
   begin
     FileName := '*.txt';
-    Filter := 'Text File|*.txt|All Files|*.*';
+    Filter := rsTextFile;
     DefaultExt := '*.txt';
     if Execute then Memo1.Lines.SaveToFile(FileName);
   end;
 end;
 
-function TStatusRptFrame.FindText(Txt: String; StartPos: SizeUint): Integer;
+function TStatusRptFrame.FindText(Txt: string; StartPos: SizeUint): Integer;
 begin
   Result := PosEx(Txt, Memo1.Text, StartPos);
   if Result > 0 then
   begin
     Memo1.SelStart := Result - 1;
     Memo1.SelLength := Length(Txt);
-//    Memo1.SetFocus;
+////    Memo1.SetFocus;
   end;
 end;
 

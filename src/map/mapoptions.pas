@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       mapoptions
  Description:  a dialog form used to set network map display options
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 unit mapoptions;
 
@@ -50,12 +48,6 @@ type
 
 const
   DarkColor = $004C4641;
-  BackColors: array [0..7] of TColor =
-    (clWhite, $00F0FBFF, $00E1FFFF, $00F0FFE0, $00FFFFF0, $00F8F8F8, $00FDEEE3,
-     DarkColor);
-  ColorNames: array [0..7] of String =
-    ('White','Cream','Yellow','Green','Cyan','Gray','Blue','Black');
-
   DefaultOptions : TMapOptions =
     (NodeSize        : 4;
      ShowNodesBySize : false;
@@ -89,49 +81,44 @@ type
   { TMapOptionsForm }
 
   TMapOptionsForm = class(TForm)
-    Annotations: TPage;
-    AntiAliasingChk: TCheckBox;
-    ResetExtentsChk: TCheckBox;
-    Label8: TLabel;
-    OtherPage: TPage;
-    Background: TPage;
-    OkBtn: TButton;
-    CancelBtn: TButton;
-    ArrowsChk: TCheckBox;
-    LinkBorderChk: TCheckBox;
-    LinksBySizeChk: TCheckBox;
-    NodeBorderChk: TCheckBox;
-    NodesBySizeChk: TCheckBox;
-    ShowNodeIDsChk: TCheckBox;
+    Notebook1:         TNotebook;
+    Nodes:             TPage;
+    Links:             TPage;
+    Annotations:       TPage;
+    FlowArrows:        TPage;
+    Background:        TPage;
+    OkBtn:             TButton;
+    CancelBtn:         TButton;
+    ArrowsChk:         TCheckBox;
+    LinkBorderChk:     TCheckBox;
+    LinksBySizeChk:    TCheckBox;
+    NodeBorderChk:     TCheckBox;
+    NodesBySizeChk:    TCheckBox;
+    ShowNodeIDsChk:    TCheckBox;
     ShowNodeValuesChk: TCheckBox;
-    ShowLinkIDsChk: TCheckBox;
+    ShowLinkIDsChk:    TCheckBox;
     ShowLinkValuesChk: TCheckBox;
-    OpaqueTextChk: TCheckBox;
-    AutoLengthChk: TCheckBox;
-    BackColorClb: TColorListBox;
-    FlowArrows: TPage;
-    Label1: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
-    Links: TPage;
-    LinkShape: TShape;
-    ListBox1: TListBox;
-    Nodes: TPage;
-    NodeShape: TShape;
-    Notebook1: TNotebook;
-    BtnPanel: TPanel;
-    Panel2: TPanel;
-    ArrowSizeEdit: TSpinEdit;
-    LinkSizeEdit: TSpinEdit;
-    NotationSizeEdit: TSpinEdit;
-    NodeSizeEdit: TSpinEdit;
-    NotationZoomEdit: TSpinEdit;
-    ArrowZoomEdit: TSpinEdit;
-    procedure btnOkClick(Sender: TObject);
+    OpaqueTextChk:     TCheckBox;
+    ListBox1:          TListBox;
+    BackColorClb:      TColorListBox;
+    Label1:            TLabel;
+    Label2:            TLabel;
+    Label3:            TLabel;
+    Label4:            TLabel;
+    Label6:            TLabel;
+    Label7:            TLabel;
+    LinkShape:         TShape;
+    NodeShape:         TShape;
+    BtnPanel:          TPanel;
+    Panel2:            TPanel;
+    ArrowSizeEdit:     TSpinEdit;
+    LinkSizeEdit:      TSpinEdit;
+    NotationSizeEdit:  TSpinEdit;
+    NodeSizeEdit:      TSpinEdit;
+    NotationZoomEdit:  TSpinEdit;
+    ArrowZoomEdit:     TSpinEdit;
+
+    procedure OkBtnClick(Sender: TObject);
     procedure LinkBorderChkChange(Sender: TObject);
     procedure NodeBorderChkChange(Sender: TObject);
     procedure BackColorClbGetColors(Sender: TCustomColorListBox;
@@ -141,6 +128,7 @@ type
     procedure ListBox1SelectionChange(Sender: TObject; User: boolean);
     procedure LinkSizeEditChange(Sender: TObject);
     procedure NodeSizeEditChange(Sender: TObject);
+
   private
     Options: TMapOptions;
     procedure SetNodeShape;
@@ -160,7 +148,15 @@ implementation
 {$R *.lfm}
 
 uses
-  main, config, project, mapcoords;
+  main, config, resourcestrings;
+
+const
+  BackColors: array [0..7] of TColor =
+    (clWhite, $00F0FBFF, $00E1FFFF, $00F0FFE0, $00FFFFF0, $00F8F8F8, $00FDEEE3,
+     DarkColor);
+
+  ColorNames: array [0..7] of string =
+    (rsWhite,rsCream,rsYellow,rsGreen,rsCyan,rsGray,rsBlue,rsBlack);
 
 function Edit(var theOptions: TMapOptions): Boolean;
 var
@@ -192,10 +188,10 @@ procedure TMapOptionsForm.FormShow(Sender: TObject);
 begin
   with Options do
   begin
-    NodeSizeEdit.Value         := NodeSize;
+    NodeSizeEdit.Value        := NodeSize;
     NodesBySizeChk.Checked    := ShowNodesBySize;
     NodeBorderChk.Checked     := ShowNodeBorder;
-    LinkSizeEdit.Value         := LinkSize;
+    LinkSizeEdit.Value        := LinkSize;
     LinksBySizeChk.Checked    := ShowLinksBySize;
     LinkBorderChk.Checked     := ShowLinkBorder;
     ShowNodeIDsChk.Checked    := ShowNodeIDs;
@@ -203,19 +199,18 @@ begin
     ShowLinkIDsChk.Checked    := ShowLinkIDs;
     ShowLinkValuesChk.Checked := ShowLinkValues;
     OpaqueTextChk.Checked     := NotationOpaque;
-    NotationSizeEdit.Value     := NotationSize;
-    NotationZoomEdit.Value     := NotationZoom;
+    NotationSizeEdit.Value    := NotationSize;
+    NotationZoomEdit.Value    := NotationZoom;
     ArrowsChk.Checked         := ShowLinkArrows;
-    ArrowSizeEdit.Value        := ArrowSize;
-    ArrowZoomEdit.Value        := ArrowZoom;
-    BackColorClb.Selected    := BackColor;
-    Notebook1.PageIndex      := EditorPage;
-    ListBox1.ItemIndex       := EditorPage;
+    ArrowSizeEdit.Value       := ArrowSize;
+    ArrowZoomEdit.Value       := ArrowZoom;
+    BackColorClb.Selected     := BackColor;
+    Notebook1.PageIndex       := EditorPage;
+    ListBox1.ItemIndex        := EditorPage;
   end;
-  AutoLengthChk.Checked := Project.AutoLength;
 end;
 
-procedure TMapOptionsForm.btnOkClick(Sender: TObject);
+procedure TMapOptionsForm.OkBtnClick(Sender: TObject);
 begin
   with Options do
   begin
@@ -238,11 +233,9 @@ begin
     BackColor       := BackColorClb.Selected;
     EditorPage      := Notebook1.PageIndex;
   end;
-  project.AutoLength := AutoLengthChk.Checked;
-  MainForm.UpdateStatusBar(sbAutoLength, '');
   MainForm.MapPanel.Color := Options.BackColor;
-  if ResetExtentsChk.Checked then
-    MainForm.MapFrame.Map.Extent := MapCoords.GetBounds(MainForm.MapFrame.GetExtent);
+  MainForm.MapFrame.NodeLegend.SetTextColor;
+  MainForm.MapFrame.LinkLegend.SetTextColor;
 end;
 
 procedure TMapOptionsForm.BackColorClbGetColors(Sender: TCustomColorListBox;

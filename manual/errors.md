@@ -46,7 +46,7 @@
 | 241  | Function call refers to nonexistent control |
 | 250  | Function call contains invalid format (e.g. too long an ID name) |
 | 251  | Function call contains invalid parameter code |
-  252  | Function call contains an invalid ID name |
+| 252  | Function call contains an invalid ID name |
 | 253  | Function call refers to nonexistent demand category |
 | 254  | Function call refers to node with no coordinates |
 | 257  | Function call refers to nonexistent rule |

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       webmapfinder
  Description:  a form that finds the geographic coords of an address
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit webmapfinder;
@@ -17,7 +15,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Buttons,
-  LCLtype, StrUtils;
+  LCLtype, StrUtils, fphttpclient, opensslsockets;
 
 type
 
@@ -28,12 +26,16 @@ type
     Label1: TLabel;
     procedure Edit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormCreate(Sender: TObject);
+
   private
     procedure GetLatLon(Address: string);
     function  GetLocation(Address: string; var Location: string): Boolean;
     function  ParseLatLon(Location: string): Boolean;
+    function  GetString(aUrl: string; var Str: string): Boolean;
+
   public
-    Lat, Lon: Double;
+    Lat: Double;
+    Lon: Double;
   end;
 
 var
@@ -42,12 +44,11 @@ var
 implementation
 
 uses
-  restclient, config, utils;
+  config, utils, resourcestrings;
 
 {$R *.lfm}
 
 { TWebMapFinderForm }
-
 
 procedure TWebMapFinderForm.FormCreate(Sender: TObject);
 begin
@@ -58,8 +59,10 @@ end;
 procedure TWebMapFinderForm.Edit1KeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  if Key = VK_ESCAPE then ModalResult := mrCancel
-  else if Key = VK_RETURN then GetLatLon(Edit1.Text);
+  if Key = VK_ESCAPE then
+    ModalResult := mrCancel
+  else if Key = VK_RETURN then
+    GetLatLon(Edit1.Text);
 end;
 
 procedure TWebMapFinderForm.GetLatLon(Address: string);
@@ -67,28 +70,30 @@ var
   Location: string = '';
   Found: Boolean = false;
 begin
-  if GetLocation(Address, Location) then
-  begin
+  if ParseLatLon(Address) then
+    Found := true
+  else if GetLocation(Address, Location) then
     Found := ParseLatLon(Location);
-  end;
   if not Found then
   begin
-    Utils.MsgDlg('Could not find ' + Address, mtError, [mbOk]);
+    Utils.MsgDlg(rsInvalidSelect, rsNoFind + ' ' + Address, mtError, [mbOk]);
   end
-  else begin
+  else
+  begin
     ModalResult := mrOK;
   end;
 end;
 
 function TWebMapFinderForm.GetLocation(Address: string; var Location: string): Boolean;
-
+//
 // Use the Open Street Map Nominatim rest service to find the latitude &
 // longitude of a place name or street address returned in 'Location'.
-
+//
 var
   Url: AnsiString = '';
-  Str: String;
-  I1, I2: Integer;
+  Str: string;
+  I1: Integer;
+  I2: Integer;
 begin
   Result := false;
   Location := '';
@@ -99,9 +104,10 @@ begin
 
   try
     Str := '';
-    Result := restclient.GetString(Url, Str)
+    Result := GetString(Url, Str)
+
   except on E: Exception do
-    utils.MsgDlg('Unable to connect to server.' + #10 + E.Message, mtError, [mbOK]);
+    utils.MsgDlg(rsConnectFail, rsNoConnect + LineEnding + E.Message, mtError, [mbOK]);
   end;
   if Result = false then exit;
 
@@ -114,9 +120,9 @@ begin
 end;
 
 function TWebMapFinderForm.ParseLatLon(Location: string): Boolean;
-
-// Extract lat and lon values from a string with format 'lat,lon'.
-
+//
+// Extract latitude, longitude values from a string with format 'lat,lon'.
+//
 var
   Tokens: TStringList;
 begin
@@ -135,6 +141,38 @@ begin
     end;
   finally
     Tokens.Free;
+  end;
+end;
+
+function TWebMapFinderForm.GetString(aUrl: string; var Str: string): Boolean;
+//
+// Retrieve a string result from an HTTP request.
+//
+var
+  Client: TFPHTTPClient;
+  Response: TStringList;
+begin
+  Result := false;
+  Response := TStringList.Create;
+  Client := TFPHttpClient.Create(Nil);
+  try
+    try
+      try
+        Client.IOTimeout := 4000;
+        Client.AllowRedirect := true;
+        Client.AddHeader('user-agent','epanet-ui/1.0.0');
+        Client.Get(aUrl, Response);
+      except
+        raise;
+      end;
+
+    finally
+      Client.Free;
+    end;
+    Str := Response.Text;
+    Result := true;
+  finally
+    Response.Free;
   end;
 end;
 

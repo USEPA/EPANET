@@ -1,70 +1,76 @@
 object ProjectViewerForm: TProjectViewerForm
-  Left = 562
+  Left = 1046
   Height = 575
-  Top = 159
+  Top = 260
   Width = 794
+  BorderStyle = bsSizeToolWin
   Caption = 'Project Data'
   ClientHeight = 575
   ClientWidth = 794
   KeyPreview = True
+  LCLVersion = '4.4.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
   OnKeyDown = FormKeyDown
   OnShow = FormShow
-  Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
   object Panel1: TPanel
-    Left = 121
-    Height = 575
+    Left = 120
+    Height = 539
     Top = 0
-    Width = 673
+    Width = 674
     Align = alClient
     Caption = 'Panel1'
-    ClientHeight = 575
-    ClientWidth = 673
+    ClientHeight = 539
+    ClientWidth = 674
     TabOrder = 0
     object StringGrid1: TStringGrid
       Left = 1
-      Height = 573
+      Height = 537
       Top = 1
-      Width = 671
+      Width = 672
       Align = alClient
       AutoFillColumns = True
-      ColCount = 1
+      ColCount = 10
       DefaultColWidth = 1000
       DefaultRowHeight = 24
-      FixedColor = 16316664
+      FixedColor = clDefault
       FixedCols = 0
-      Font.CharSet = ANSI_CHARSET
-      Font.Height = -13
-      Font.Name = 'Courier New'
-      Font.Pitch = fpFixed
-      Font.Quality = fqDraft
-      Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goThumbTracking, goSmoothScroll]
-      ParentFont = False
+      Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goThumbTracking, goSmoothScroll, goTruncCellHints, goCellEllipsis]
+      ParentShowHint = False
       RowCount = 500
       ScrollBars = ssBoth
+      ShowHint = True
       TabOrder = 0
+      OnGetCellHint = StringGrid1GetCellHint
       ColWidths = (
-        650
+        68
+        68
+        67
+        67
+        67
+        67
+        67
+        67
+        67
+        67
       )
     end
   end
   object Panel2: TPanel
     Left = 0
-    Height = 575
+    Height = 539
     Top = 0
-    Width = 116
+    Width = 120
     Align = alLeft
     BevelOuter = bvNone
-    ClientHeight = 575
-    ClientWidth = 116
+    ClientHeight = 539
+    ClientWidth = 120
     TabOrder = 1
     object Panel3: TPanel
       Left = 0
       Height = 25
       Top = 0
-      Width = 116
+      Width = 120
       Align = alTop
       BevelOuter = bvNone
       BorderStyle = bsSingle
@@ -73,9 +79,9 @@ object ProjectViewerForm: TProjectViewerForm
     end
     object ListBox1: TListBox
       Left = 0
-      Height = 550
+      Height = 514
       Top = 25
-      Width = 116
+      Width = 120
       Align = alClient
       ItemHeight = 24
       ParentColor = True
@@ -84,10 +90,17 @@ object ProjectViewerForm: TProjectViewerForm
       OnClick = ListBox1Click
     end
   end
-  object Splitter1: TSplitter
-    Left = 116
-    Height = 575
-    Top = 0
-    Width = 5
+  object Panel4: TPanel
+    Left = 0
+    Height = 36
+    Top = 539
+    Width = 794
+    Align = alBottom
+    Alignment = taLeftJustify
+    Caption = '  Project data are displayed in the same format used to save them to file.'
+    Color = 14811135
+    ParentBackground = False
+    ParentColor = False
+    TabOrder = 2
   end
 end

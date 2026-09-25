@@ -7,10 +7,10 @@ object SourceEditorForm: TSourceEditorForm
   Caption = 'Source Quality Editor'
   ClientHeight = 246
   ClientWidth = 351
-  OnCreate = FormCreate
   ParentFont = True
   Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
+  LCLVersion = '4.4.0.0'
+  OnCreate = FormCreate
   object Panel1: TPanel
     Left = 0
     Height = 50
@@ -21,7 +21,7 @@ object SourceEditorForm: TSourceEditorForm
     ClientWidth = 351
     TabOrder = 1
     object HelpBtn: TButton
-      Left = 45
+      Left = 16
       Height = 25
       Top = 9
       Width = 75
@@ -30,22 +30,19 @@ object SourceEditorForm: TSourceEditorForm
       OnClick = HelpBtnClick
     end
     object OkBtn: TButton
-      Left = 140
+      Left = 170
       Height = 25
       Top = 9
-      Width = 75
+      Width = 76
       Caption = 'OK'
-      Default = True
-      ModalResult = 1
       TabOrder = 1
       OnClick = OkBtnClick
     end
     object CancelBtn: TButton
-      Left = 231
+      Left = 258
       Height = 25
       Top = 9
-      Width = 75
-      Cancel = True
+      Width = 76
       Caption = 'Cancel'
       ModalResult = 2
       TabOrder = 2
@@ -75,10 +72,10 @@ object SourceEditorForm: TSourceEditorForm
       ButtonWidth = 23
       MaxLength = 0
       NumGlyphs = 1
-      OnButtonClick = PatternEditButtonClick
       PasswordChar = #0
       Spacing = 2
       TabOrder = 1
+      OnButtonClick = PatternEditButtonClick
     end
     object Label2: TLabel
       Left = 16
@@ -100,6 +97,7 @@ object SourceEditorForm: TSourceEditorForm
       Top = 19
       Width = 80
       MaxLength = 0
+      SpinButtonWidth = 17
       TabOrder = 0
       OnChange = StrengthEditChange
       ArrowKeys = False
@@ -111,7 +109,7 @@ object SourceEditorForm: TSourceEditorForm
       Left = 16
       Height = 15
       Top = 116
-      Width = 63
+      Width = 64
       Caption = 'Source Type'
     end
     object SourceTypeCombo: TComboBox

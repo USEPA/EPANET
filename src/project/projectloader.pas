@@ -1,13 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ project:      EPANET-UI
+ Version:      1.0.3
  Module:       projectloader
- Description:  form with progress bar that executes loading an EPANET
-               input file in a separate thread
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  form that loads an EPANET input file
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit projectloader;
@@ -17,33 +14,24 @@ unit projectloader;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls,
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ComCtrls,
   ExtCtrls;
 
 type
-  TFileLoader = class(TThread)
-  private
-    FileName: string;
-  protected
-    procedure Execute; override;
-  public
-    constructor Create(Fname: string);
-    property ReturnValue;
-  end;
-
   { TProjectLoaderForm }
 
   TProjectLoaderForm = class(TForm)
-    Label1: TLabel;
     Panel1: TPanel;
-    ProgressBar1: TProgressBar;
-    procedure FormShow(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+
   private
+    function GetWebMapSource: Integer;
+    procedure SetMsxFlag;
 
   public
     InpFileName: string;
     LoaderResult: Integer;
-    procedure FileLoaderTerminated(Sender: TObject);
   end;
 
 var
@@ -54,35 +42,62 @@ implementation
 {$R *.lfm}
 
 uses
-  project;
+  main, project, config, inifile, utils, resourcestrings;
 
 { TProjectLoaderForm }
 
-procedure TProjectLoaderForm.FormShow(Sender: TObject);
+procedure TProjectLoaderForm.FormActivate(Sender: TObject);
 var
-  FileLoader : TFileLoader;
+  WebMapSource: Integer;
 begin
-  FileLoader := TFileLoader.Create(InpFileName);
-  FileLoader.OnTerminate := @FileLoaderTerminated;
-  FileLoader.Start;
-end;
-
-procedure TProjectLoaderForm.FileLoaderTerminated(Sender: TObject);
-begin
-  LoaderResult := TFileLoader(Sender).ReturnValue;
+  Application.ProcessMessages;
+  LoaderResult := project.Load(InpFileName);
+  if LoaderResult in [0, 200] then
+  begin
+    WebMapSource := GetWebMapSource;
+    SetMsxFlag;
+    MainForm.InitFormContents(InpFileName, WebMapSource);
+  end;
   ModalResult := mrOK;
-end;  
-
-constructor TFileLoader.Create(Fname: string);
-begin
-  inherited Create(True);
-  FreeOnTerminate := True;
-  FileName := Fname;
 end;
 
-procedure TFileLoader.Execute;
+procedure TProjectLoaderForm.FormCreate(Sender: TObject);
 begin
-  ReturnValue := Project.Load(FileName);
+  Font.Size := config.FontSize;
+end;
+
+function TProjectLoaderForm.GetWebMapSource: Integer;
+var
+  WebMapSource: Integer;  // Web map service provider code (see webmap.pas)
+begin
+  // Check for valid web basemap source
+  WebMapSource := 0;
+  inifile.ReadProjectDefaults(ChangeFileExt(InpFileName, '.ini'), WebMapSource);
+  if (WebMapSource > 0) then
+  begin
+    // Check for internet connection
+    Panel1.Caption := rsLoadBasemap;
+    Application.ProcessMessages;
+    if (not utils.HasInternetConnection()) then
+      WebMapSource := 0
+
+    // Set map CRS to WGS84 (EPSG 4326) if no CRS set and map units are degrees
+    else if project.MapEPSG = 0 then
+    begin
+      if project.MapUnits <> muDegrees then
+        WebMapSource := 0
+      else
+        project.MapEPSG := 4326;
+    end;
+  end;
+  Result := WebMapSource;
+end;
+
+procedure TProjectLoaderForm.SetMsxFlag;
+begin
+  if SameText(project.GetQualModelStr, rsNoQuality)
+  and FileExists(project.MsxInpFile) then
+    project.MsxFlag := true;
 end;
 
 end.

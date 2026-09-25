@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       shpimporter
  Description:  a wizard dialog form used to import a pipe network
                from a shapefile
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit shpimporter;
@@ -25,67 +23,63 @@ type
   { TShpImporterForm }
 
   TShpImporterForm = class(TForm)
-    AddToProjectCB: TCheckBox;
-    ClearLinksBtn: TBitBtn;
-    ClearNodesBtn: TBitBtn;
-    ComputeLengthsCB: TCheckBox;
-    EpsgEdit: TEdit;
-    FeetRB: TRadioButton;
-    BackBtn: TBitBtn;
-    Image1: TImage;
-    ImportBtn: TBitBtn;
-    Label1: TLabel;
-    Label13: TLabel;
-    Label14: TLabel;
-    Label15: TLabel;
-    Label17: TLabel;
-    Label19: TLabel;
-    IntroLabel: TLabel;
-    ViewNodeAttribLabel: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
-    PrjFileLabel: TLabel;
-    LinksDataGrid: TStringGrid;
-    LinksFileBtn: TBitBtn;
-    LinksFileEdit: TEdit;
-    MetersRB: TRadioButton;
-    NextBtn: TBitBtn;
-    CancelBtn: TBitBtn;
-    NodesDataGrid: TStringGrid;
-    NodesFileBtn: TBitBtn;
-    NodesFileEdit: TEdit;
-    Notebook1: TNotebook;
-    Page1: TPage;
-    Page2: TPage;
-    PageControl1: TPageControl;
-    PaintBox1: TPaintBox;
-    BtnPanel: TPanel;
-    Panel10: TPanel;
-    Panel11: TPanel;
-    Panel2: TPanel;
-    Panel3: TPanel;
-    Panel4: TPanel;
-    Panel5: TPanel;
-    Panel6: TPanel;
-    Panel7: TPanel;
-    Panel9: TPanel;
-    Shape10: TShape;
-    Shape11: TShape;
-    Shape12: TShape;
-    Shape13: TShape;
-    Shape7: TShape;
-    Shape8: TShape;
-    Shape9: TShape;
-    SnapTolEdit: TFloatSpinEditEx;
-    LinksTabSheet: TTabSheet;
-    NodesTabSheet: TTabSheet;
-    OptionsTabSheet: TTabSheet;
-    TabSheet4: TTabSheet;
-    UnitsCombo: TComboBox;
+    BackBtn:             TButton;
+    CancelBtn:           TButton;
+    NextBtn:             TButton;
+    ImportBtn:           TButton;
+    ClearLinksBtn:       TBitBtn;
+    ClearNodesBtn:       TBitBtn;
+    LinksFileBtn:        TBitBtn;
+    NodesFileBtn:        TBitBtn;
+    ComputeLengthsCB:    TCheckBox;
+    LinksFileEdit:       TEdit;
+    NodesFileEdit:       TEdit;
+    EpsgEdit:            TEdit;
+    FeetRB:              TRadioButton;
+    MetersRB:            TRadioButton;
+    Image1:              TImage;
+    Label1:              TLabel;
+    Label4:              TLabel;
+    Label6:              TLabel;
+    Label7:              TLabel;
+    Label13:             TLabel;
+    Label14:             TLabel;
+    Label17:             TLabel;
+    Label19:             TLabel;
+    IntroLabel:          TLabel;
     ViewLinkAttribLabel: TLabel;
+    ViewNodeAttribLabel: TLabel;
+    PrjFileLabel:        TLabel;
+    LinksDataGrid:       TStringGrid;
+    NodesDataGrid:       TStringGrid;
+    Notebook1:           TNotebook;
+    Page1:               TPage;
+    Page2:               TPage;
+    PaintBox1:           TPaintBox;
+    Panel1:              TPanel;
+    BtnPanel:            TPanel;
+    Panel9:              TPanel;
+    Panel10:             TPanel;
+    Panel2:              TPanel;
+    Panel3:              TPanel;
+    Panel4:              TPanel;
+    Panel6:              TPanel;
+    Panel7:              TPanel;
+    Shape10:             TShape;
+    Shape11:             TShape;
+    Shape12:             TShape;
+    Shape13:             TShape;
+    Shape7:              TShape;
+    Shape8:              TShape;
+    Shape9:              TShape;
+    SnapTolEdit:         TFloatSpinEditEx;
+    UnitsCombo:          TComboBox;
+    PageControl1:        TPageControl;
+    LinksTabSheet:       TTabSheet;
+    NodesTabSheet:       TTabSheet;
+    OptionsTabSheet:     TTabSheet;
+    PreviewTabSheet:     TTabSheet;
+
     procedure ImportBtnClick(Sender: TObject);
     procedure BackBtnClick(Sender: TObject);
     procedure CancelBtnClick(Sender: TObject);
@@ -100,17 +94,20 @@ type
     procedure FileBtnClick(Sender: TObject);
     procedure ViewLinkAttribLabelClick(Sender: TObject);
     procedure ViewNodeAttribLabelClick(Sender: TObject);
+
   private
-    NodeFile:   String;      // Name of node shape file
-    LinkFile:   String;      // Name of link shape file
-    HasChanged: Boolean;     // True if new data loaded
+    NodeFile:   string;      // Name of node shape file
+    LinkFile:   string;      // Name of link shape file
+    HasChanged: Boolean;     // true if new data loaded
     Bitmap:     TBitMap;     // Bitmap used to preview network
-    function  LoadDbfFields(Fname: String; aGrid: TStringGrid): Boolean;
+
+    function  LoadDbfFields(Fname: string; aGrid: TStringGrid): Boolean;
     procedure ClearDataGrid(aGrid: TStringGrid);
     procedure SetButtonStates;
     function  ReadPrjFile: Boolean;
-    function  ReadEpsg(Prj: String): String;
-    function  ReadUnits(Prj: String): String;
+    function  ReadEpsg(Prj: string): string;
+    function  ReadUnits(Prj: string): string;
+
   public
 
   end;
@@ -123,24 +120,18 @@ implementation
 {$R *.lfm}
 
 uses
-  main, config, project, utils, shpviewer, shploader, shpapi;
+  main, config, project, utils, shpviewer, shploader, shpapi, resourcestrings;
 
 { TShpImporterForm }
 
 const
 
- Intro: String =
-   'The following pages will step you' + LineEnding + ' ' + LineEnding +
-   'through the process of importing' +  LineEnding + ' ' + LineEnding +
-   'georeferenced node and link data' +  LineEnding + ' ' + LineEnding +
-   'from GIS shapefiles into EPANET.';
-
-  LinkProps: array[0..9] of String =
-  ('Link Property', 'Link ID', 'Link Type', 'Start Node', 'End Node',
+  LinkProps: array[0..9] of string =
+  (rsShpLinkProp, 'Link ID', 'Link Type', 'Start Node', 'End Node',
    'Description', 'Tag', 'Length', 'Diameter', 'Roughness');
 
-  NodeProps: array[0..6] of String =
-  ('Node Property', 'Node ID', 'Node Type', 'Description', 'Tag',
+  NodeProps: array[0..6] of string =
+  (rsShpNodeProp, 'Node ID', 'Node Type', 'Description', 'Tag',
    'Elevation', 'Base Demand');
 
 procedure TShpImporterForm.FormCreate(Sender: TObject);
@@ -149,24 +140,36 @@ var
 begin
   Color := config.ThemeColor;
   Font.Size := config.FontSize;
+  SnapTolEdit.DecimalSeparator := DefaultFormatSettings.DecimalSeparator;
   ViewLinkAttribLabel.Font.Size := config.FontSize;
   ViewNodeAttribLabel.Font.Size := config.FontSize;
   PrjFileLabel.Font.Size := config.FontSize;
-  IntroLabel.Caption := Intro;
+
+  IntroLabel.Caption := rsShpIntro;
+  Panel3.Caption := rsShpPanel3Text;
+  Panel6.Caption := rsShpPanel6Text;
+  Panel10.Caption := rsShpPanel10Text;
+
   for I := Low(LinkProps) to High(LinkProps) do
     LinksDataGrid.Cells[0,I] := LinkProps[I];
   LinksDataGrid.FixedColor := Color;
   for I := Low(NodeProps) to High(NodeProps) do
     NodesDataGrid.Cells[0,I] := NodeProps[I];
   NodesDatagrid.FixedColor := Color;
-  BackBtn.Visible := False;
+
+  BackBtn.Visible := false;
   ImportBtn.Left := NextBtn.Left;
-  ImportBtn.Visible := False;
-  UnitsCombo.ItemIndex := 0;
+  ImportBtn.Visible := false;
+
+  UnitsCombo.ItemIndex := project.MapUnits;
+  if project.MapEPSG > 0 then
+    EpsgEdit.Text := IntToStr(project.MapEPSG);
+
   Bitmap := TBitmap.Create;
   Bitmap.PixelFormat := pf24Bit;
   Bitmap.Canvas.Brush.Color := clWhite;
   Bitmap.Canvas.Brush.Style := bsSolid;
+
   Notebook1.PageIndex := 0;
   PageControl1.ActivePageIndex := 0;
 end;
@@ -187,7 +190,7 @@ begin
   LinkFile := '';
   LinksFileEdit.Text := '';
   ClearDataGrid(LinksDataGrid);
-  ViewLinkAttribLabel.Visible := False;
+  ViewLinkAttribLabel.Visible := false;
 end;
 
 procedure TShpImporterForm.ClearNodesBtnClick(Sender: TObject);
@@ -195,52 +198,51 @@ begin
   NodeFile := '';
   NodesFileEdit.Text := '';
   ClearDataGrid(NodesDataGrid);
-  ViewNodeAttribLabel.Visible := False;
+  ViewNodeAttribLabel.Visible := false;
 end;
 
 procedure TShpImporterForm.BackBtnClick(Sender: TObject);
 begin
   with PageControl1 do
   begin
-    if ActivePageIndex > 0 then ActivePageIndex := ActivePageIndex - 1;
+    if ActivePageIndex > 0 then
+      ActivePageIndex := ActivePageIndex - 1;
   end;
   SetButtonStates;
 end;
 
 procedure TShpImporterForm.NextBtnClick(Sender: TObject);
 begin
-  if Notebook1.PageIndex = 0 then Notebook1.PageIndex := 1
+  if Notebook1.PageIndex = 0 then
+    Notebook1.PageIndex := 1
   else with PageControl1 do
   begin
-    if ActivePageIndex < 3 then ActivePageIndex := ActivePageIndex + 1;
+    if ActivePageIndex < 3 then
+      ActivePageIndex := ActivePageIndex + 1;
   end;
   SetButtonStates;
 end;
 
 procedure TShpImporterForm.ImportBtnClick(Sender: TObject);
-// Import link and node data from a shapefile into an EPANET project.
-
 var
   ShpOptions: shploader.TShpOptions;
-  R, Epsg, Code: Integer;
-  S: String;
+  R:          Integer;
+  Code:       Integer;
+  S:          string;
 begin
-  if not AddToProjectCB.Checked then
-  begin
-    MainForm.FileNew(False);
-    Epsg := 0;
-    Val(EpsgEdit.Text, Epsg, Code);
-    project.MapEPSG := Epsg;
-    project.OldMapEPSG := Epsg;
-  end;
-  
   with ShpOptions do
   begin
     NodeFileName := NodeFile;
     LinkFileName := LinkFile;
     CoordUnits := UnitsCombo.ItemIndex;
+    Epsg := 0;
+    if Length(Trim(EpsgEdit.Text)) > 0 then
+      Val(EpsgEdit.Text, Epsg, Code);
     SnapTol := SnapTolEdit.Value;
-    if FeetRB.Checked then SnapUnits := 1 else SnapUnits := 2;
+    if FeetRB.Checked then
+      SnapUnits := 1
+    else
+      SnapUnits := 2;
     ComputeLengths := ComputeLengthsCB.Checked;
     
     with LinksDataGrid do
@@ -264,25 +266,31 @@ begin
     end;
   end;
   
-  shploader.LoadShapeFile(ShpOptions);
-  Hide;
-  ModalResult := mrOK;
+  if not shploader.LoadShapeFile(ShpOptions) then
+    BackBtnClick(self)
+  else
+  begin
+    Hide;
+    ModalResult := mrOK;
+  end;
 end;
 
 procedure TShpImporterForm.PrjFileLabelClick(Sender: TObject);
+//
+// Read contents of a .prj file if supplied with node or link shapefiles
+// otherwise have user select a .prj file to view from file system.
+//
 var
-  S: String;
+  S: string;
 begin
   if ReadPrjFile then exit;
-  if QuestionDlg('EPANET', 'No projection data were found.'+LineEnding+
-    'Would you like to search yourself?', mtInformation,
-      [mrYes, mrNo],0) = mrNo then exit;
-
+  if utils.MsgDlg(rsMissingData, rsNoProjData, mtConfirmation, [mbYes, mbNo],
+    self) = mrNo then exit;
   with MainForm.OpenDialog1 do
   begin
     S := Title;
-    Title := 'Select a Projection File';
-    Filter := 'Projection Files|*.prj';
+    Title := rsSelectProjFile;
+    Filter := rsProjFiles;
     Filename := '*.prj';
     if Execute then
     begin
@@ -299,15 +307,16 @@ begin
 end;
 
 procedure TShpImporterForm.FileBtnClick(Sender: TObject);
-// Load either a Links shapefile or Nodes shapefile into their
-// respective tabsheets.
-
 var
-  Fname: String = '';
+  Fname: string = '';
 begin
   with MainForm.OpenDialog1 do
   begin
-    Filter := 'Shape Files|*.shp';
+    if PageControl1.ActivePage = LinksTabSheet then
+      Title := rsLinksShpFile
+    else
+      Title := rsNodesShpFile;
+    Filter := rsShpFiles;
     Filename := '*.shp';
     if Execute then Fname := Filename else exit;
    end;
@@ -317,10 +326,11 @@ begin
     if LoadDbfFields(Fname, LinksDataGrid) then
     begin
       LinksFileEdit.Text := MinimizeName(Fname, Canvas, LinksFileEdit.Width);
-      if not SameText(Fname, LinkFile) then HasChanged := True;
+      if not SameText(Fname, LinkFile) then HasChanged := true;
       LinkFile := Fname;
     end
-    else LinksFileEdit.Text := '';
+    else
+      LinksFileEdit.Text := '';
   end;
 
   if PageControl1.ActivePage = NodesTabSheet then
@@ -328,10 +338,11 @@ begin
     if LoadDbfFields(Fname, NodesDataGrid) then
     begin
       NodesFileEdit.Text := MinimizeName(Fname, Canvas, NodesFileEdit.Width);
-      if not SameText(Fname, NodeFile) then HasChanged := True;
+      if not SameText(Fname, NodeFile) then HasChanged := true;
       NodeFile := Fname;
     end
-    else NodesFileEdit.Text := '';
+    else
+      NodesFileEdit.Text := '';
   end;
 end;
 
@@ -367,41 +378,47 @@ end;
 
 procedure TShpImporterForm.SetButtonStates;
 begin
-  ImportBtn.Visible := False;
-  BackBtn.Visible := True;
-  NextBtn.Visible := True;
-  TabSheet4.TabVisible := False;
-  if PageControl1.ActivePageIndex = 0 then BackBtn.Visible := False;
+  ImportBtn.Visible := false;
+  BackBtn.Visible := true;
+  BackBtn.Enabled := true;
+  NextBtn.Visible := true;
+  PreviewTabSheet.TabVisible := false;
+  if PageControl1.ActivePageIndex = 0 then BackBtn.Enabled := false;
   if PageControl1.ActivePageIndex = 3 then
   begin
-    NextBtn.Visible := False;
-    ImportBtn.Visible := True;
-    TabSheet4.TabVisible := True;
+    NextBtn.Visible := false;
+    ImportBtn.Visible := true;
+    ImportBtn.Enabled := false;
+    PreviewTabSheet.TabVisible := true;
     if HasChanged then
     begin
+      ImportBtn.Enabled := true;
       Bitmap.SetSize(PaintBox1.Width, PaintBox1.Height);
       Bitmap.Canvas.Rectangle(0, 0, Bitmap.Width, Bitmap.Height);
-      if shpviewer.ViewShpFile(LinkFile, NodeFile, Bitmap) = True then
-        HasChanged := False;
+      if shpviewer.ViewShpFile(LinkFile, NodeFile, Bitmap) = true then
+        HasChanged := false;
       PaintBox1.Refresh;
     end;
   end;
 end;
 
-function TShpImporterForm.LoadDbfFields(Fname: String; aGrid: TStringGrid): Boolean;
-// Load the shapfile's attribute names into a StringGrid.
-
+function TShpImporterForm.LoadDbfFields(Fname: string; aGrid: TStringGrid): Boolean;
+//
+// Load fields in a Node/Link dBase file Fname into aGrid's column 0 PickList.
+//
 var
   ShapeType: Integer;
   MinBound: array [0..3] of Double;
   MaxBound: array [0..3] of Double;
   FieldName: array[0..XBASE_FLDNAME_LEN_READ] of Char;
-  Count, FieldWidth, FieldDecimals: Integer;
+  Count: Integer;
+  FieldWidth: Integer;
+  FieldDecimals: Integer;
   Shp: SHPHandle;
   Dbf: DBFHandle;
   I: Integer;
 begin
-  Result := False;
+  Result := false;
   Shp := nil;
   Dbf := nil;
 
@@ -414,7 +431,7 @@ begin
     Shp := SHPOpen(PAnsiChar(Fname), 'rb');
     if Shp = Nil then
     begin
-      utils.MsgDlg('File is not a valid shape file.', mtError, [mbOk]);
+      utils.MsgDlg(rsFileError, rsNotShpFile, mtError, [mbOk], self);
       exit;
     end;
     shpapi.SHPGetInfo(Shp, Count, ShapeType, MinBound, MaxBound);
@@ -424,7 +441,7 @@ begin
     begin
       if ShapeType <> SHPT_ARC then
       begin
-        utils.MsgDlg('File does not contain link data.', mtError, [mbOk]);
+        utils.MsgDlg(rsFileError, rsNotLinkFile, mtError, [mbOk], self);
         exit;
       end;
     end
@@ -432,7 +449,7 @@ begin
     begin
       if ShapeType <> SHPT_POINT then
       begin
-        utils.MsgDlg('File does not contain node data.', mtError, [mbOk]);
+        utils.MsgDlg(rsFileError, rsNotNodeFile, mtError, [mbOk], self);
         exit;
       end;
     end;
@@ -451,11 +468,11 @@ begin
         aGrid.Columns[0].PickList.Add(FieldName);
       end;
       if PageControl1.ActivePage = LinksTabSheet then
-        ViewLinkAttribLabel.Visible := True
+        ViewLinkAttribLabel.Visible := true
       else
-        ViewNodeAttribLabel.Visible:= True;
+        ViewNodeAttribLabel.Visible:= true;
     end;
-    Result := True;
+    Result := true;
 
   // Close the shape and Dbase files
   finally
@@ -466,7 +483,8 @@ end;
 
 procedure TShpImporterForm.ClearDataGrid(aGrid: TStringGrid);
 var
-  I, J: Integer;
+  I: Integer;
+  J: Integer;
 begin
   with aGrid do
   begin
@@ -478,16 +496,17 @@ begin
 end;
 
 function TShpImporterForm.ReadPrjFile: Boolean;
+//
 // Read the EPSG code and coordinate units from a .prj file.
-
+//
 var
-  Fname: String;
+  Fname: string;
   F: TextFile;
-  S: String;
-  Units: String;
-  Epsg: String;
+  S: string;
+  Units: string;
+  Epsg: string;
 begin
-  Result := False;
+  Result := false;
   Fname := ChangeFileExt(LinkFile, '.prj');
   if not FileExists(Fname) then
     Fname := ChangeFileExt(NodeFile, '.prj');
@@ -503,54 +522,52 @@ begin
   S := UpperCase(S);
   Units := ReadUnits(S);
   Epsg := ReadEpsg(S);
-  if (Length(Units) > 0) or (Length(Epsg) > 0) then
+  if (Length(Units) > 0)
+  or (Length(Epsg) > 0) then
   begin
-    S := 'The following projection data were found:' + LineEnding;
-    S := S + 'EPSG: ' + Epsg + LineEnding + 'Units: ' + Units;
-    if QuestionDlg('EPANET', S, mtInformation,
-      [mrOK, 'Accept', mrCancel], 0) = mrOK then
+    S := Format(rsProjData, [Epsg, Units]);
+    if utils.MsgDlg('', S, mtConfirmation, [mbYes, mbNo], self) = mrYes then
     begin
       UnitsCombo.ItemIndex := UnitsCombo.Items.IndexOf(Units);
       EpsgEdit.Text := Epsg;
-      Result := True;
+      Result := true;
     end
-    else exit;
+    else
+      exit;
   end;
 end;
 
-function TShpImporterForm.ReadEpsg(Prj: String): String;
+function TShpImporterForm.ReadEpsg(Prj: string): string;
+//
 // Parse an EPSG code from string Prj.
-
+//
 const
-  EpsgSubStr: String = 'AUTHORITY["EPSG","';
-  GeoSubStr: String = 'GEOGCS';
-  Wgs84SubStr: String = 'WGS_1984';
+  EpsgSubStr: string = 'AUTHORITY["EPSG","';
 var
-  N1, N2: Integer;
+  N1: Integer;
+  N2: Integer;
 begin
   Result := '';
   if Length(Prj) = 0 then exit;
-  if (Pos(GeoSubStr, Prj) > 0) and (Pos(Wgs84SubStr, Prj) > 0) then
-    Result := '4326'
-  else begin
-    N1 := Prj.LastIndexOf(EpsgSubStr);
-    if (N1 > 0) then
-    begin
-      N1 := N1 + Length(EpsgSubStr) + 1;
-      N2 := LastDelimiter('"', Prj);
-      Result := Copy(Prj, N1, N2 - N1);
-    end;
+  N1 := Prj.LastIndexOf(EpsgSubStr);
+  if (N1 > 0) then
+  begin
+    N1 := N1 + Length(EpsgSubStr) + 1;
+    N2 := LastDelimiter('"', Prj);
+    Result := Copy(Prj, N1, N2 - N1);
   end;
 end;
 
-function TShpImporterForm.ReadUnits(Prj: String): String;
+function TShpImporterForm.ReadUnits(Prj: string): string;
+//
 // Parse the units of the shapefile coordinates from string Prj
-
+//
 const
-  UnitSubStr: String = ',UNIT["';
+  UnitSubStr: string = ',UNIT["';
 var
-  N1, N2: Integer;
-  S: String;
+  N1: Integer;
+  N2: Integer;
+  S: string;
 begin
   Result := 'Unknown';
   if Length(Prj) = 0 then exit;
@@ -561,10 +578,14 @@ begin
     N2 := Pos('"', Prj, N1);
     if N2 <= N1 then exit;
     S := Upcase(Copy(Prj, N1, N2-N1));
-    if Pos('DEG',S) > 0 then Result := 'Degrees'
-    else if Pos('FEET', S) > 0 then Result := 'Feet'
-    else if Pos('FOOT', S) > 0 then Result := 'Feet'
-    else if Pos('MET', S) > 0 then Result := 'Meters';
+    if Pos('DEG',S) > 0 then
+      Result := 'Degrees'
+    else if Pos('FEET', S) > 0 then
+      Result := rsFeet
+    else if Pos('FOOT', S) > 0 then
+      Result := rsFeet
+    else if Pos('MET', S) > 0 then
+      Result := rsMeters;
   end;
 end;
 

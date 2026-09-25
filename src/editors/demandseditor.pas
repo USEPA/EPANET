@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       demandseditor
  Description:  a dialog form that edits multiple demands at a node
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit demandseditor;
@@ -17,7 +15,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Grids, StdCtrls, Math,
-  lclIntf;
+  lclIntf, ExtCtrls;
 
 const
   MaxDemands = 10;
@@ -27,10 +25,12 @@ type
   { TDemandsEditorForm }
 
   TDemandsEditorForm = class(TForm)
-    OkBtn: TButton;
-    CancelBtn: TButton;
-    HelpBtn: TButton;
     DemandsGrid: TStringGrid;
+    OkBtn:       TButton;
+    CancelBtn:   TButton;
+    HelpBtn:     TButton;
+    Panel1:      TPanel;
+
     procedure OkBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure HelpBtnClick(Sender: TObject);
@@ -39,21 +39,22 @@ type
     procedure DemandsGridSetEditText(Sender: TObject; ACol, ARow: Integer;
       const Value: string);
   private
-    NodeIndex: Integer;
-    NumDemands: Integer;
+    NodeIndex:     Integer;
+    NumDemands:    Integer;
     NewNumDemands: Integer;
-    Demands: Array[1..MaxDemands] of Single;
-    Patterns: Array[1..MaxDemands] of String;
-    Categories: Array[1..MaxDemands] of String;
+    Demands:       array[1..MaxDemands] of Single;
+    Patterns:      array[1..MaxDemands] of string;
+    Categories:    array[1..MaxDemands] of string;
+
     function UnloadDemands: Boolean;
     procedure SaveDemands;
-    procedure ShowError(Msg: String; R: Integer; C: Integer);
+    procedure ShowError(Msg: string; R: Integer; C: Integer);
 
   public
     HasChanged: Boolean;
     procedure LoadDemands(const Index: Integer);
-    procedure GetPrimaryDemandInfo(var PrimaryDemand: String;
-      var PrimaryPattern: String; var DemandCount: String);
+    procedure GetPrimaryDemandInfo(var PrimaryDemand: string;
+      var PrimaryPattern: string; var DemandCount: string);
 
   end;
 
@@ -65,7 +66,7 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, config, patternselector, utils, epanet2;
+  main, project, config, patterneditor, utils, epanet2, resourcestrings;
 
 { TDemandsEditorForm }
 
@@ -87,32 +88,32 @@ end;
 
 procedure TDemandsEditorForm.HelpBtnClick(Sender: TObject);
 begin
-  MainForm.ShowHelp('#demand_categories');
+  MainForm.ViewHelp('#demand_categories');
 end;
 
 procedure TDemandsEditorForm.DemandsGridButtonClick(Sender: TObject; aCol,
   aRow: Integer);
 var
-  OldPattern: String;
-  NewPattern: String;
-  PatSelector: TPatternSelectorForm;
+  OldPattern: string;
+  NewPattern: string;
+  PatternEditor: TPatternEditorForm;
 begin
   with DemandsGrid do
     OldPattern := Cells[aCol, Row];
   NewPattern := OldPattern;
-  PatSelector := TPatternSelectorForm.Create(Self);
+  PatternEditor := TPatternEditorForm.Create(Self);
   try
-    PatSelector.Setup(OldPattern);
-    PatSelector.ShowModal;
-    if PatSelector.ModalResult = mrOK then
-      NewPattern := PatSelector.SelectedName;
+    PatternEditor.Setup(OldPattern);
+    PatternEditor.ShowModal;
+    if PatternEditor.ModalResult = mrOK then
+      NewPattern := PatternEditor.SelectedName;
   finally
-     PatSelector.Free;
+     PatternEditor.Free;
   end;
   if not SameText(NewPattern, OldPattern) then
   begin
     DemandsGrid.Cells[aCol,aRow] := NewPattern;
-    HasChanged := True;
+    HasChanged := true;
   end;
 end;
 
@@ -125,7 +126,7 @@ end;
 procedure TDemandsEditorForm.DemandsGridSetEditText(Sender: TObject; ACol,
   ARow: Integer; const Value: string);
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 procedure TDemandsEditorForm.LoadDemands(const Index: Integer);
@@ -134,9 +135,9 @@ var
   N: Integer;
   D: Single = 0;
   P: Integer = 0;
-  C: array[0..EN_MAXID+1] of AnsiChar;
+  C: array[0..EN_MAXID+1] of AnsiChar = '';
 begin
-  Caption := 'Demand Categories for Junction ' + project.GetID(cNodes, Index);
+  Caption := rsDemandCategories + project.GetID(ctNodes, Index);
   NodeIndex := Index;
   epanet2.ENgetnumdemands(NodeIndex, NumDemands);
   N := Min(NumDemands, MaxDemands);
@@ -145,11 +146,11 @@ begin
     epanet2.ENgetbasedemand(NodeIndex, I, D);
     DemandsGrid.Cells[1,I] := utils.Float2Str(D, 4);
     epanet2.ENgetdemandpattern(NodeIndex, I, P);
-    DemandsGrid.Cells[2,I] := project.GetID(cPatterns, P);
+    DemandsGrid.Cells[2,I] := project.GetID(ctPatterns, P);
     epanet2.ENgetdemandname(NodeIndex, I, C);
     DemandsGrid.Cells[3,I] := C;
   end;
-  HasChanged := False;
+  HasChanged := false;
 end;
 
 function TDemandsEditorForm.UnloadDemands: Boolean;
@@ -157,7 +158,9 @@ var
   I: Integer;
   D: Single = 0;
   P: Integer;
-  S1, S2, S3: String;
+  S1: string;
+  S2: string;
+  S3: string;
 begin
   Result := false;
   NewNumDemands := 0;
@@ -169,24 +172,27 @@ begin
       S1 := Trim(Cells[1,I]);
       S2 := Trim(Cells[2,I]);
       S3 := Trim(Cells[3,I]);
-      if  (S1.Length = 0) and (S2.Length = 0) and (S3.Length = 0) then continue;
+      if  (S1.Length = 0)
+      and (S2.Length = 0)
+      and (S3.Length = 0) then continue;
 
       // Retrieve base demand value
-      if S1.Length = 0 then D := 0
+      if S1.Length = 0 then
+        D := 0
       else if not Utils.Str2Float(S1, D) then
       begin
-        ShowError('Invalid Demand value in row ' + IntToStr(I), I, 1);
+        ShowError(rsInvalidDemand + IntToStr(I), I, 1);
         Exit;
       end;
 
       // Check for valid pattern
       if S2.Length > 0 then
       begin
-        P := project.GetItemIndex(cPatterns, S2);
+        P := project.GetItemIndex(ctPatterns, S2);
         if P = 0 then
         begin
-          ShowError('Invalid Pattern name in row ' + IntToStr(I), I, 2);
-          Exit;
+          ShowError(rsInvalidPattern + IntToStr(I), I, 2);
+          exit;
         end;
       end;
 
@@ -224,7 +230,7 @@ begin
 end;
 
 procedure TDemandsEditorForm.GetPrimaryDemandInfo(var PrimaryDemand: String;
-          var PrimaryPattern: String; var DemandCount: String);
+          var PrimaryPattern: string; var DemandCount: string);
 var
   N: Integer = 0;
   D1: Single = 0;
@@ -233,7 +239,7 @@ begin
   epanet2.ENgetbasedemand(NodeIndex, 1, D1);
   PrimaryDemand := utils.Float2Str(D1, 4);
   epanet2.ENgetdemandpattern(NodeIndex, 1, P1);
-  PrimaryPattern := project.GetID(cPatterns, P1);
+  PrimaryPattern := project.GetID(ctPatterns, P1);
   epanet2.ENgetnumdemands(NodeIndex, N);
   DemandCount := IntToStr(N);
 end;
@@ -244,7 +250,7 @@ begin
   begin
     Row := R;
     Col := C;
-    utils.MsgDlg(Msg, mtError, [mbOK]);
+    utils.MsgDlg(rsInvalidData, Msg, mtError, [mbOK]);
     SetFocus;
   end;
 end;

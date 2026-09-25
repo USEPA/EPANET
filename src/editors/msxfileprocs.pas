@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       msxfileprocs
  Description:  procedures for reading and writing a MSX data file
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 { This unit references the properties of components
@@ -20,10 +18,10 @@ interface
 
 uses
   Classes, SysUtils, StrUtils, Forms, Controls, ExtCtrls, StdCtrls,
-  Grids, SpinEx, msxeditor,    Dialogs;
+  Grids, SpinEx, msxeditor;
 
-procedure ReadMsxFile(MsxEditorForm: TMsxEditorForm; Filename: String);
-procedure WriteMsxFile(MsxEditorForm: TMsxEditorForm; Filename: String);
+procedure ReadMsxFile(MsxEditorForm: TMsxEditorForm; Filename: string);
+procedure WriteMsxFile(MsxEditorForm: TMsxEditorForm; Filename: string);
 
 implementation
 
@@ -33,32 +31,32 @@ uses
 const
 
   // To detect sections when reading a MSX data file
-  ReadSections: array[0..12] of String =
+  ReadSections: array[0..12] of string =
     ('[TITLE', '[OPTIONS', '[SPECIES', '[PIPE', '[TANK', '[TERM', '[COEFF',
       '[PARAM', '[QUAL', '[SOURCE', '[PATTERN', '[DIFFUS', '[REPORT');
 
   // Section names for writing a MSX data file
-  WriteSections: array[0..11] of String =
+  WriteSections: array[0..11] of string =
   ('[TITLE]', '[OPTIONS]', '[SPECIES]', '[PIPES]', '[TANKS]', '[TERMS]',
    '[COEFFICIENTS]', '[PARAMETERS]', '[QUALITY]', '[SOURCES]', '[PATTERNS]',
    '[DIFFUSIVITY]');
 
   // MSX options with values from a list of choices
-  ListOptions: array[0..4] of String =
+  ListOptions: array[0..4] of string =
     ('AREA_UNITS', 'RATE_UNITS', 'SOLVER', 'COUPLING', 'COMPILER');
 
   // MSX options with numerical values
-  ValueOptions: array[0..4] of String =
+  ValueOptions: array[0..4] of string =
     ('TIMESTEP', 'ATOL', 'RTOL', 'SEGMENTS', 'PECLET');
 
 var
   EditorForm: TMsxEditorForm;
-  Comment: String;
-  PrevPatnID: String;
-  PatnStr: String;
+  Comment: string;
+  PrevPatnID: string;
+  PatnStr: string;
   Patterns: TStringList;
 
-function  FindSection(S: String): Integer;
+function  FindSection(S: string): Integer;
 var
   I: Integer;
 begin
@@ -81,7 +79,7 @@ end;
 procedure ParseOption(Tokens: TStringlist);
 var
   I: Integer;
-  S: String;
+  S: string;
   V: Double;
 begin
   if Tokens.Count < 2 then exit;
@@ -91,10 +89,12 @@ begin
   begin
     with EditorForm.FindComponent('ComboBox' + IntToStr(I+1)) as TComboBox do
       Text := S
-  end else
+  end
+  else
   begin
     I := AnsiIndexText(Tokens[0], ValueOptions);
-    if (I >= 0) and TryStrToFloat(S, V) then
+    if (I >= 0)
+    and TryStrToFloat(S, V) then
       with EditorForm.FindComponent('FloatSpinEditEx' + IntToStr(I+1))
         as TFloatSpinEditEx do Value := V;
   end;
@@ -102,7 +102,7 @@ end;
 
 procedure ParsePattern(Tokens: TStringlist);
 var
-  PatnID: String;
+  PatnID: string;
   I: Integer;
 begin
   // A new pattern begins -- save previous one
@@ -121,9 +121,11 @@ end;
 
 procedure AddPatternsToProject;
 var
-  I, J, N: Integer;
-  aID: String;
-  aComment: String;
+  I: Integer;
+  J: Integer;
+  N: Integer;
+  aID: string;
+  aComment: string;
   aIndex: Integer;
   aPattern: TStringList;
   X: Single;
@@ -134,7 +136,7 @@ begin
 
   try
     // Examine each pattern created by reading the MSX file
-    aPattern.StrictDelimiter := True;
+    aPattern.StrictDelimiter := true;
     for I := 0 to Patterns.Count - 1 do
     begin
       // aPattern is the delimited pattern data
@@ -145,11 +147,11 @@ begin
       aComment := Trim(aPattern[1]);
 
       // See if the pattern already appears in the EPANET project
-      if project.GetItemIndex(cPatterns, aID) > 0 then continue;
+      if project.GetItemIndex(ctPatterns, aID) > 0 then continue;
 
       // Create a new pattern in the EPANET project
       if epanet2.ENaddpattern(PChar(aID)) > 0 then continue;
-      aIndex := project.GetItemCount(cPatterns);
+      aIndex := project.GetItemCount(ctPatterns);
       if Length(aComment) > 0 then
         epanet2.ENsetcomment(EN_TIMEPAT, aIndex, PAnsiChar(aComment));
 
@@ -159,9 +161,9 @@ begin
       for J := 2 to aPattern.Count - 1 do
       begin
         if TryStrToFloat(aPattern[J], X) then
-          Multipliers[J-2] := X
+          Multipliers[J - 2] := X
         else
-          Multipliers[J-2] := 1.0;
+          Multipliers[J - 2] := 1.0;
       end;
 
       // Add the multipliers to the EPANET project's pattern
@@ -195,8 +197,11 @@ end;
 
 procedure ParseLine(Section: Integer; Grid: TStringGrid; Tokens: TStringlist);
 var
-  I, J, N, M: Integer;
-  S: String;
+  I: Integer;
+  J: Integer;
+  N: Integer;
+  M: Integer;
+  S: string;
 begin
   J := Grid.RowCount - 1;
   N := Tokens.Count;
@@ -227,7 +232,7 @@ begin
   if Length(Comment) > 0 then Grid.Cells[Grid.ColCount-1,J] := Comment;
 end;
 
-procedure ReadMsxFile(MsxEditorForm: TMsxEditorForm; Filename: String);
+procedure ReadMsxFile(MsxEditorForm: TMsxEditorForm; Filename: string);
 var
   Tokens: TStringList;
   F: TextFile;
@@ -257,8 +262,6 @@ begin
       // Read a line from the file into S
       Readln(F, S);
       S := TrimLeft(S);
-
-      // Skip blank lines
       if Length(S) = 0 then continue;
 
       // Extract comment if line begins with semicolon
@@ -286,7 +289,6 @@ begin
       if Section = 12 then continue;
 
       // Extract any comment from the end of line S
-      //Comment := '';
       I := Pos(';',S);
       if I > 0 then
       begin
@@ -299,17 +301,21 @@ begin
       if Tokens.Count = 0 then continue;
 
       // Assign tokens to MSX Options if in [OPTIONS] section
-      if Section = 1 then ParseOption(Tokens)
+      if Section = 1 then
+        ParseOption(Tokens)
 
       // Assign tokens to time patterns if in [PATTERNS] section
-      else if Section = 10 then ParsePattern(Tokens)
+      else if Section = 10 then
+        ParsePattern(Tokens)
 
       // Assign diffusivity values to species if in [DIFFUSIVITY] section
-      else if Section = 11 then ParseDiffusivity(Tokens)
+      else if Section = 11 then
+        ParseDiffusivity(Tokens)
 
       // For all other sections, assign tokens to the cells of the
       // StringGrid in the MSXEditor form used for the section
-      else begin
+      else
+      begin
         Grid := EditorForm.FindComponent('StringGrid' + IntToStr(Section-1))
           as TStringGrid;
         Grid.RowCount := Grid.RowCount + 1;
@@ -329,13 +335,19 @@ begin
 end;
 
 procedure WriteOptions(Slist: TStringList);
+var
+  Tstep: Double;
 begin
   Slist.Add('[OPTIONS]');
   Slist.Add('AREA_UNITS  ' + EditorForm.ComboBox1.Text);
   Slist.Add('RATE_UNITS  ' + EditorForm.ComboBox2.Text);
   Slist.Add('SOLVER      ' + EditorForm.ComboBox3.Text);
   Slist.Add('COUPLING    ' + EditorForm.ComboBox4.Text);
-  Slist.Add('TIMESTEP    ' + Format('%0.3f',[EditorForm.FloatSpinEditEx1.Value]));
+  Tstep := EditorForm.FloatSpinEditEx1.Value;
+  if Frac(Tstep) = 0 then
+    Slist.Add('TIMESTEP    ' + Format('%0.0f',[Tstep]))
+  else
+    Slist.Add('TIMESTEP    ' + Format('%0.3f',[Tstep]));
   Slist.Add('ATOL        ' + Format('%0.5f',[EditorForm.FloatSpinEditEx2.Value]));
   Slist.Add('RTOL        ' + Format('%0.5f',[EditorForm.FloatSpinEditEx3.Value]));
   Slist.Add('COMPILER    ' + EditorForm.ComboBox5.Text);
@@ -346,8 +358,9 @@ end;
 
 procedure WriteSection(I: Integer; Slist: TStringList);
 var
-  C, R, N, M: Integer;
-  S: String;
+  R: Integer;
+  N: Integer;
+  S: string;
 begin
   Slist.Add(WriteSections[I]);
   with EditorForm.FindComponent('StringGrid' + IntToStr(I-1)) as TStringGrid do
@@ -357,17 +370,23 @@ begin
       if Length(Trim(Cells[1,R])) = 0 then continue;
       S := '';
       case I of
-      2: S := Format('%-11s %-14s %-7s %-13s %-13s',
-              [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R], Cells[4,R]]);
-      3,
-      4: S := Format('%-11s %-14s %-35s', [Cells[0,R], Cells[1,R], Cells[2,R]]);
-      5: S := Format('%-11s %-35s', [Cells[0,R], Cells[1,R]]);
-      6: S := Format('%-11s %-14s %-14s', [Cells[0,R], Cells[1,R], Cells[2,R]]);
-      7,
-      8: S := Format('%-11s %-14s %-14s %-14s',
-              [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R]]);
-      9: S := Format('%-11s %-14s %-14s %-14s %-14s',
-              [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R], Cells[4,R]]);
+        2:
+          S := Format('%-11s %-14s %-7s %-13s %-13s',
+                 [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R], Cells[4,R]]);
+        3,
+        4:
+          S := Format('%-11s %-14s %-35s', [Cells[0,R], Cells[1,R], Cells[2,R]]);
+        5:
+          S := Format('%-11s %-35s', [Cells[0,R], Cells[1,R]]);
+        6:
+          S := Format('%-11s %-14s %-14s', [Cells[0,R], Cells[1,R], Cells[2,R]]);
+        7,
+        8:
+          S := Format('%-11s %-14s %-14s %-14s',
+                 [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R]]);
+        9:
+          S := Format('%-11s %-14s %-14s %-14s %-14s',
+                [Cells[0,R], Cells[1,R], Cells[2,R], Cells[3,R], Cells[4,R]]);
       end;          
       N := ColCount-1;
       if Length(Trim(Cells[N,R])) <> 0 then S := S + '  ;' + Cells[N,R];
@@ -377,24 +396,28 @@ begin
   Slist.Add('');
 end;
 
-procedure WritePattern(Slist: TStringList; Pattern: String);
+procedure WritePattern(Slist: TStringList; Pattern: string);
 var
-  PatternIndex, PatternLength, I, M: Integer;
+  I: Integer;
+  M: Integer;
+  PatternIndex: Integer;
+  PatternLength: Integer;
   PatternValue: Single;
-  PatternComment, Line: String;
+  PatternComment: string;
+  Line: string;
 begin
   // Check that pattern exists
-  PatternIndex := project.GetItemIndex(cPatterns, Pattern);
+  PatternIndex := project.GetItemIndex(ctPatterns, Pattern);
   if PatternIndex < 1 then exit;
 
   // Add any comment to Slist
-  PatternComment := project.GetComment(EN_TIMEPAT, PatternIndex);
+  PatternComment := project.GetComment(ctPatterns, PatternIndex);
   if Length(PatternComment) > 0 then Slist.Add(';' + PatternComment);
 
   // Get pattern length (i.e., number of multipliers)
   ENgetpatternlen(PatternIndex, PatternLength);
 
-  // Begine a new line of text containing up to 6 multipliers
+  // Begin a new line of text containing up to 6 multipliers
   M := 0;
   Line := '';
 
@@ -425,7 +448,7 @@ end;
 procedure WritePatterns(Slist: TStringList);
 var
   R: Integer;
-  Pattern: String;
+  Pattern: string;
   Grid: TStringGrid;
   Patterns: TStringList;
 begin
@@ -435,7 +458,7 @@ begin
   try
     for R := 1 to Grid.RowCount - 1 do
     begin
-      Pattern := Grid.Cells[4,R];
+      Pattern := Grid.Cells[4, R];
       if Length(Pattern) > 0 then
       begin
         if Patterns.IndexOf(Pattern) >= 0 then continue;
@@ -452,25 +475,25 @@ end;
 procedure WriteDiffusivity(Slist: TStringList);
 var
   R: Integer;
-  S: String;
+  S: string;
 begin
   Slist.Add('[DIFFUSIVITY]');
   with EditorForm.StringGrid1 do
   begin
     for R := 1 to RowCount-1 do
     begin
-      if Length(Trim(Cells[1,R])) = 0 then continue;
-      if Length(Trim(Cells[5,R])) = 0 then continue;
-      S := Format('%-14s %-14s',[Cells[1,R],Cells[5,R]]);
+      if Length(Trim(Cells[1, R])) = 0 then continue;
+      if Length(Trim(Cells[5, R])) = 0 then continue;
+      S := Format('%-14s %-14s',[Cells[1, R],Cells[5, R]]);
       Slist.Add(S);
     end;
   end;
 end;
 
-procedure WriteMsxFile(MsxEditorForm: TMsxEditorForm; Filename: String);
+procedure WriteMsxFile(MsxEditorForm: TMsxEditorForm; Filename: string);
 var
   Slist: TStringList;
-  S: String;
+  S: string;
   I: Integer;
 begin
   EditorForm := MsxEditorForm;

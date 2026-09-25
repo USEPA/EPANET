@@ -5,9 +5,7 @@ object StatusRptFrame: TStatusRptFrame
   Width = 497
   ClientHeight = 395
   ClientWidth = 497
-  Color = clDefault
-  ParentBackground = False
-  ParentColor = False
+  LCLVersion = '4.4.0.0'
   TabOrder = 0
   DesignLeft = 792
   DesignTop = 327
@@ -17,12 +15,7 @@ object StatusRptFrame: TStatusRptFrame
     Top = 0
     Width = 497
     Align = alClient
-    Font.CharSet = ANSI_CHARSET
-    Font.Height = -13
-    Font.Name = 'Monospace'
-    Font.Pitch = fpFixed
-    Font.Quality = fqDraft
-    ParentFont = False
+    BorderStyle = bsNone
     ReadOnly = True
     ScrollBars = ssAutoBoth
     TabOrder = 0

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       msxeditor
  Description:  a form used to edit EPANET-MSX input data
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 {
  The MsxEditorForm consists of a MenuPanel used to select a
@@ -47,94 +45,96 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,
-  Grids, Menus, ComCtrls, Buttons, HtmlView, SpinEx, StrUtils, lclintf,
-  Clipbrd, HTMLUn2, HtmlGlobals, LCSVUtils;
+  Grids, Menus, ComCtrls, Buttons, HtmlView, SpinEx, lclintf,
+  Clipbrd, HTMLUn2, HtmlGlobals, LCSVUtils, FileUtil;
 
 type
 
   { TMsxEditorForm }
 
   TMsxEditorForm = class(TForm)
-    ComboBox1: TComboBox;
-    ComboBox2: TComboBox;
-    ComboBox3: TComboBox;
-    ComboBox4: TComboBox;
-    ComboBox5: TComboBox;
-    CopyBtn: TToolButton;
-    CutBtn: TToolButton;
-    TitleEdit: TEdit;
-    FloatSpinEditEx1: TFloatSpinEditEx;
-    FloatSpinEditEx2: TFloatSpinEditEx;
-    FloatSpinEditEx3: TFloatSpinEditEx;
-    FloatSpinEditEx4: TFloatSpinEditEx;
-    FloatSpinEditEx5: TFloatSpinEditEx;
-    HelpBtn: TButton;
-    HtmlViewer1b: THtmlViewer;
-    HtmlViewer1a: THtmlViewer;
-    HtmlViewer2: THtmlViewer;
-    OfficeImageList: TImageList;
+    ComboBox1:         TComboBox;
+    ComboBox2:         TComboBox;
+    ComboBox3:         TComboBox;
+    ComboBox4:         TComboBox;
+    ComboBox5:         TComboBox;
+    EditingToolBar:    TToolBar;
+    SymbolsBtn:        TToolButton;
+    InsertBtn:         TToolButton;
+    RemoveBtn:         TToolButton;
+    CopyBtn:           TToolButton;
+    CutBtn:            TToolButton;
+    PasteBtn:          TToolButton;
+    MoveDnBtn:         TToolButton;
+    MoveUpBtn:         TToolButton;
+    CloseBtn:          TButton;
+    CancelBtn:         TButton;
+    LoadBtn:           TButton;
+    SaveAsBtn:         TButton;
+    ClearBtn:          TButton;
+    HelpBtn:           TButton;
+    TitleEdit:         TEdit;
+    FloatSpinEditEx1:  TFloatSpinEditEx;
+    FloatSpinEditEx2:  TFloatSpinEditEx;
+    FloatSpinEditEx3:  TFloatSpinEditEx;
+    FloatSpinEditEx4:  TFloatSpinEditEx;
+    FloatSpinEditEx5:  TFloatSpinEditEx;
+    HtmlViewer1b:      THtmlViewer;
+    HtmlViewer1a:      THtmlViewer;
+    HtmlViewer2:       THtmlViewer;
+    OfficeImageList:   TImageList;
     MaterialImageList: TImageList;
-    InsertBtn: TToolButton;
-    Label1: TLabel;
-    Label10: TLabel;
-    Label11: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
-    Label8: TLabel;
-    Label9: TLabel;
-    MoveDnBtn: TToolButton;
-    MoveUpBtn: TToolButton;
-    Panel3: TPanel;
-    PasteBtn: TToolButton;
-    OkBtn: TButton;
-    CancelBtn: TButton;
-    LoadBtn: TButton;
-    InstructPanel: TPanel;
-    IntroPanel: TPanel;
+    Label1:            TLabel;
+    Label10:           TLabel;
+    Label11:           TLabel;
+    Label2:            TLabel;
+    Label3:            TLabel;
+    Label4:            TLabel;
+    Label5:            TLabel;
+    Label6:            TLabel;
+    Label7:            TLabel;
+    Label8:            TLabel;
+    Label9:            TLabel;
+    Panel3:            TPanel;
+    InstructPanel:     TPanel;
+    IntroPanel:        TPanel;
     InstructTextPanel: TPanel;
-    RemoveBtn: TToolButton;
-    SaveBtn: TButton;
-    ClearBtn: TButton;
-    Coeffs: TPage;
-    Image1: TImage;
-    ImageList1: TImageList;
-    SaveDialog1: TSaveDialog;
-    SectionListBox: TListBox;
-    Notebook1: TNotebook;
-    OpenDialog1: TOpenDialog;
-    Options: TPage;
-    Overview: TPage;
-    MenuPanel: TPanel;
-    Panel2: TPanel;
-    ButtonPanel: TPanel;
-    MainPanel: TPanel;
-    SymbolsPanel: TPanel;
-    TitlePanel: TPanel;
-    ImagePanel: TPanel;
-    Params: TPage;
-    Pipes: TPage;
-    Quality: TPage;
-    Sources: TPage;
-    Species: TPage;
-    StringGrid1: TStringGrid;
-    StringGrid5: TStringGrid;
-    StringGrid4: TStringGrid;
-    StringGrid2: TStringGrid;
-    StringGrid3: TStringGrid;
-    StringGrid8: TStringGrid;
-    StringGrid7: TStringGrid;
-    StringGrid6: TStringGrid;
-    Tanks: TPage;
-    Terms: TPage;
-    EditingToolBar: TToolBar;
-    SymbolsBtn: TToolButton;
+    ButtonPanel:       TPanel;
+    MainPanel:         TPanel;
+    SymbolsPanel:      TPanel;
+    TitlePanel:        TPanel;
+    ImagePanel:        TPanel;
+    MenuPanel:         TPanel;
+    Panel2:            TPanel;
+    Image1:            TImage;
+    ImageList1:        TImageList;
+    OpenDialog1:       TOpenDialog;
+    SaveDialog1:       TSaveDialog;
+    SectionListBox:    TListBox;
+    Notebook1:         TNotebook;
+    Options:           TPage;
+    Overview:          TPage;
+    Coeffs:            TPage;
+    Params:            TPage;
+    Pipes:             TPage;
+    Quality:           TPage;
+    Sources:           TPage;
+    Species:           TPage;
+    Tanks:             TPage;
+    Terms:             TPage;
+    StringGrid1:       TStringGrid;
+    StringGrid5:       TStringGrid;
+    StringGrid4:       TStringGrid;
+    StringGrid2:       TStringGrid;
+    StringGrid3:       TStringGrid;
+    StringGrid8:       TStringGrid;
+    StringGrid7:       TStringGrid;
+    StringGrid6:       TStringGrid;
+
     procedure ClearBtnClick(Sender: TObject);
     procedure CopyBtnClick(Sender: TObject);
     procedure CutBtnClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure TitleEditChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure HelpBtnClick(Sender: TObject);
@@ -143,13 +143,13 @@ type
     procedure InsertBtnClick(Sender: TObject);
     procedure MoveDnBtnClick(Sender: TObject);
     procedure MoveUpBtnClick(Sender: TObject);
-    procedure OkBtnClick(Sender: TObject);
+    procedure CloseBtnClick(Sender: TObject);
     procedure CancelBtnClick(Sender: TObject);
     procedure LoadBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure PasteBtnClick(Sender: TObject);
     procedure RemoveBtnClick(Sender: TObject);
-    procedure SaveBtnClick(Sender: TObject);
+    procedure SaveAsBtnClick(Sender: TObject);
     procedure SectionListBoxClick(Sender: TObject);
     procedure StringGrid1ColRowInserted(Sender: TObject; IsColumn: Boolean;
       sIndex, tIndex: Integer);
@@ -171,16 +171,22 @@ type
     procedure StringGrid6SelectEditor(Sender: TObject; aCol, aRow: Integer;
       var Editor: TWinControl);
     procedure SymbolsBtnClick(Sender: TObject);
+
   private
-    Comment: String;
-    HasChanged: Boolean;
-    MsxFile: String;
-    FocusedGrid: TStringGrid;
+    OldDecimalPt: Char;
+    MsxFile:      string;
+    FocusedGrid:  TStringGrid;
+
     procedure ClearAll;
-    procedure SelectionSetText(TheText: String);
-    procedure ReadMsxFile(Filename: String);
+    procedure SelectionSetText(TheText: string);
+    procedure ReadMsxFile(Filename: string);
+    function  GetNewMsxFile: string;
 
   public
+    HasChanged: Boolean;
+
+    procedure SetMsxFile(FileName: string);
+    procedure GetMsxFile(var FileName: string);
 
   end;
 
@@ -192,8 +198,16 @@ implementation
 {$R *.lfm}
 
 uses
-  project, config, msxfileprocs, patternselector, utils, epanet2;
+  project, config, msxfileprocs, patterneditor, utils;
 
+resourcestring
+  rsShowSymbolsMsg = 'Show Reserved Symbols Panel';
+  rsHideSymbolsMsg = 'Hide Reserved Symbols Panel';
+  rsReplaceMsg     = 'Do you wish to replace all current MSX data with';
+  rsRemoveMsg      = 'Do you wish to remove all current MSX data from the project.';
+
+// File msxtext.txt contains text for the following String variables:
+// IntroA, IntroB, Instructs, and Symbols.
 {$I msxtext.txt}
 
 const
@@ -206,65 +220,119 @@ const
   DefValueOptions: array[1..5] of Double =
     (300, 0.01000, 0.01000, 5000, 1000);
 
-  SaveMsg = 'Please save your newly created MSX model.';
-  ShowSymbolsMsg = 'Show Reserved Symbols Panel';
-  HideSymbolsMsg = 'Hide Reserved Symbols Panel';
   ShowSymbolsImageIndex = 7;
   HideSymbolsImageIndex = 8;
 
 { TMsxEditorForm }
 
 procedure TMsxEditorForm.FormCreate(Sender: TObject);
+var
+  I: Integer;
 begin
   Color := config.ThemeColor;
   TitlePanel.Color := Color;
-//  IntroPanel.Color := $00E0FFFF; //  clInfoBk;  //Color;
   Font.Size := config.FontSize;
+
+  // Force editor to use '.' as decimal point
+  OldDecimalPt := DefaultFormatSettings.DecimalSeparator;
+  DefaultFormatSettings.DecimalSeparator := '.';
+
+  // Set platform-specific mono-spaced font for all StringGrids
+  for I := 1 to 8 do
+  begin
+    with FindComponent('StringGrid' + IntToStr(I)) as TStringGrid do
+    begin
+      Font.Name := config.MonoFont;
+      FixedColor := config.ThemeColor;
+    end;
+  end;
 
   // HtmlViewers used to display an introduction to the editor
   HtmlViewer1a.DefFontColor := clBlack;
   HtmlViewer1b.DefFontColor := clBlack;
-  HtmlViewer1a.DefFontSize := Font.Size;
-  HtmlViewer1b.DefFontSize := Font.Size;
-  HtmlViewer1a.DefBackground := clCream;  //$00E0FFFF;
-  HtmlViewer1b.DefBackground := clCream;  //$00E0FFFF;
+  HtmlViewer1a.DefFontSize := 10;  //Font.Size;
+  HtmlViewer1b.DefFontSize := 10;  //Font.Size;
+  HtmlViewer1a.DefBackground := $00E0FFFF;  //clCream
+  HtmlViewer1b.DefBackground := $00E0FFFF;  //clCream
   HtmlViewer1a.LoadFromString(IntroA);
   HtmlViewer1b.LoadFromString(IntroB);
 
   // HtmlViewer2 displays reserved variable names in the SymbolsPanel
   HtmlViewer2.DefFontSize := Font.Size;
   HtmlViewer2.LoadFromString(Symbols);
-  SymbolsPanel.Visible := False;
+  SymbolsPanel.Visible := false;
 
   SectionListBox.ItemIndex := 0;
   Notebook1.PageIndex := 0;
-  InstructPanel.Visible := False;
+  InstructPanel.Visible := false;
 
   // Initialize the editing toolbar used with StringGrids
   if SameText(config.IconFamily, 'Material') then
     EditingToolBar.Images := MaterialImageList
   else
     EditingToolBar.Images := OfficeImageList;
-  EditingToolBar.Visible := False;
+  EditingToolBar.Visible := false;
   Clipboard.Clear;
   Clipboard.asText := '';
 
   // Clear all data entry fields
+  MsxFile := '';
   ClearAll;
-  HasChanged := False;
+  HasChanged := false;
   FocusedGrid := nil;
 end;
 
-procedure TMsxEditorForm.FormShow(Sender: TObject);
-
-//  Load the current MSX file into the editor
-
+procedure TMsxEditorForm.FormClose(Sender: TObject;
+  var CloseAction: TCloseAction);
 begin
-  MsxFile := project.MsxInpFile;
-  if Length(MsxFile) > 0 then
+  // Restore original decimal point
+  DefaultFormatSettings.DecimalSeparator := OldDecimalPt;
+end;
+
+procedure TMsxEditorForm.SetMsxFile(FileName: string);
+begin
+  if FileExists(FileName) then
   begin
-    ReadMsxFile(MsxFile);
+    MsxFile := Filename;
+    Caption := 'Msx Editor - ' + MsxFile;
+  end
+  else
+    MsxFile := '';
+end;
+
+procedure TMsxEditorForm.GetMsxFile(var FileName: string);
+begin
+  FileName := MsxFile;
+end;
+
+function TMsxEditorForm.GetNewMsxFile: string;
+var
+  CurrentMsxFile: string;
+  CurrentMsxDir: string;
+begin
+  Result := '';
+  CurrentMsxFile := MsxFile;
+  CurrentMsxDir := ExtractFileDir(CurrentMsxFile);
+  if Length(CurrentMsxDir) = 0 then
+    CurrentMsxDir := ExtractFileDir(project.InpFile);
+  with SaveDialog1 do
+  begin
+    if Length(CurrentMsxFile) > 0 then
+      FileName := CurrentMsxFile
+    else
+      FileName := '*.msx';
+    if Length(CurrentMsxDir) > 0 then
+      InitialDir := CurrentMsxDir;
+    Filter := 'EPANET MSX Files|*.msx|All Files|*.*';
+    if Execute then
+      Result := FileName;
   end;
+end;
+
+procedure TMsxEditorForm.FormShow(Sender: TObject);
+begin
+  if FileExists(MsxFile) then
+    ReadMsxFile(MsxFile);
 end;
 
 procedure TMsxEditorForm.HtmlViewer1bHotSpotClick(Sender: TObject;
@@ -274,11 +342,9 @@ begin
 end;
 
 procedure TMsxEditorForm.TitleEditChange(Sender: TObject);
-
-// OnChange handler shared by all input controls on the Options page
-
+// Shared by all input controls on the Options page
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 //------------------------------------------------------------------------------
@@ -293,7 +359,7 @@ end;
 procedure TMsxEditorForm.LoadBtnClick(Sender: TObject);
 var
   R: Integer;
-  NewFileName: String;
+  NewFileName: string;
 begin
   // Get the name of the new MSX file to load
   NewFileName := '';
@@ -309,84 +375,65 @@ begin
   if HasChanged or (Length(MsxFile) > 0 )then
   begin
     R := utils.MsgDlg(
-      'All current MSX data will be replaced by the contents of ' +
-        ExtractFileName(NewFileName), mtConfirmation, [mbOK, mbCancel]);
-    if R <> mrOK then exit;
+      '', rsReplaceMsg + LineEnding +
+        ExtractFileName(NewFileName), mtConfirmation, [mbYes, mbNo]);
+    if R <> mrYes then exit;
   end;
 
   // Clear the editor's contents and load the new MSX file
   ClearAll;
   MsxFile := NewFileName;
   ReadMsxFile(MsxFile);
-  HasChanged := True;
+  Caption := 'MSX Editor - ' + MsxFile;
+  HasChanged := true;
 end;
 
-procedure TMsxEditorForm.ReadMsxFile(Filename: String);
+procedure TMsxEditorForm.ReadMsxFile(Filename: string);
 begin
   msxfileprocs.ReadMsxFile(self, Filename);
   SectionListBox.ItemIndex := 1;
   SectionListBoxClick(self);
 end;
 
-procedure TMsxEditorForm.SaveBtnClick(Sender: TObject);
-
-//  Save the editor's contents to file
-
+procedure TMsxEditorForm.SaveAsBtnClick(Sender: TObject);
 var
-  CurrentMsxFile: String;
-  CurrentMsxDir: String;
+  NewMsxFile: string;
 begin
-  CurrentMsxFile := MsxFile;
-  CurrentMsxDir := ExtractFileDir(CurrentMsxFile);
-  if Length(CurrentMsxDir) = 0 then
-    CurrentMsxDir := ExtractFileDir(project.InpFile);
-  with SaveDialog1 do
+  NewMsxFile := GetNewMsxFile;
+  if Length(NewMsxFile) > 0 then
   begin
-    if Length(CurrentMsxFile) > 0 then
-      FileName := CurrentMsxFile
-    else
-      FileName := '*.msx';
-    if Length(CurrentMsxDir) > 0 then
-      InitialDir := CurrentMsxDir;
-    Filter := 'EPANET MSX Files|*.msx|All Files|*.*';
-    if Execute then
-    begin
-      msxfileprocs.WriteMsxFile(self, FileName);
-      MsxFile := FileName;
-      HasChanged := False;
-    end;
+    MsxFile := NewMsxFile;
+    msxfileprocs.WriteMsxFile(self, MsxFile);
+    Caption := 'Msx Editor - ' + MsxFile;
+    HasChanged := true;
   end;
 end;
 
-procedure TMsxEditorForm.OkBtnClick(Sender: TObject);
+procedure TMsxEditorForm.CloseBtnClick(Sender: TObject);
 begin
-  if HasChanged then
+  if Length(MsxFile) = 0 then
   begin
-    if Length(MsxFile) = 0 then
+    if HasChanged then
     begin
-      if utils.MsgDlg(SaveMsg, mtInformation, [mbOK, mbCancel], self) = mrOk then
-        SaveBtnClick(Sender)
-      else exit;
+      SaveAsBtnClick(Sender);
+      if Length(MsxFile) = 0 then exit;
     end
-    else msxfileprocs.WriteMsxFile(self, MsxFile);
-  end;
-  if HasChanged or (not SameText(MsxFile, project.MsxInpFile)) then
-    project.HasChanged := True;
-  project.MsxInpFile := MsxFile;
-  project.UpdateResultsStatus;
+    else ModalResult := mrOK;
+  end
+  else if HasChanged then
+    msxfileprocs.WriteMsxFile(self, MsxFile);
   ModalResult := mrOK;
 end;
 
 procedure TMsxEditorForm.HelpBtnClick(Sender: TObject);
 
 const
-  HelpTopics: array[1..9] of String =
+  HelpTopics: array[1..9] of string =
     ('#options','#species','#pipes','#tanks','#terms','#coefficients',
      '#parameters','#quality','#sources');
-
 var
   I: Integer;
-  Url: String = 'https://epanetmsx2manual.readthedocs.io/en/latest/';
+  Url: string = 'https://epanetmsx2manual.readthedocs.io/en/latest/';
 begin
   I := SectionListBox.ItemIndex;
   if I = 0 then
@@ -400,24 +447,25 @@ procedure TMsxEditorForm.ClearBtnClick(Sender: TObject);
 var
   R: Integer;
 begin
-  if HasChanged or (Length(MsxFile) > 0 )then
+  R := utils.MsgDlg('', rsRemoveMsg, mtConfirmation, [mbYes, mbNo]);
+  if R = mrYes then
   begin
-    R := utils.MsgDlg('This will remove all current MSX data from the project.',
-      mtConfirmation, [mbOK, mbCancel]);
-    if R = mrOK then ClearAll;
+    ClearAll;
+    MsxFile := '';
+    Caption := 'MSX Editor';
   end;
 end;
 
 procedure TMsxEditorForm.ClearAll;
 var
-  I, C: Integer;
+  I: Integer;
 begin
   // Initialize the StringGrid editors
   for I := 1 to 8 do
   begin
     with FindComponent('StringGrid' + IntToStr(I)) as TStringGrid do
     begin
-      FastEditing := False;
+      FastEditing := false;
       RowCount := 1;  // The header row
     end;
   end;
@@ -434,8 +482,7 @@ begin
     with FindComponent('FloatSpinEditEx' + IntToStr(I)) as TFloatSpinEditEx do
       Value := DefValueOptions[I];
   end;
-  MsxFile := '';
-  HasChanged := False;
+  HasChanged := false;
 end;
 
 //------------------------------------------------------------------------------
@@ -443,9 +490,6 @@ end;
 //------------------------------------------------------------------------------
 
 procedure TMsxEditorForm.SectionListBoxClick(Sender: TObject);
-
-// Show the editing page for a data section selected from the SectionListBox.
-
 var
   I: Integer;
 begin
@@ -453,33 +497,36 @@ begin
   Notebook1.PageIndex := I;
   if I > 0 then
   begin
-    InstructPanel.Visible := True;
+    InstructPanel.Visible := true;
     InstructTextPanel.Caption := Instructs[I];
   end
-  else InstructPanel.Visible := False;
+  else
+    InstructPanel.Visible := false;
   if I > 1 then
   begin
-    EditingToolBar.Visible := True;
+    EditingToolBar.Visible := true;
     FocusedGrid := FindComponent('StringGrid' + IntToStr(I-1)) as TStringGrid;
-  end else
+  end
+  else
   begin
-    EditingToolBar.Visible := False;
+    EditingToolBar.Visible := false;
     FocusedGrid := nil;
   end;
-  SymbolsPanel.Visible := False;
+  SymbolsPanel.Visible := false;
   SymbolsBtn.Visible := (I in [3,4,5]);
-  SymbolsBtn.Hint := ShowSymbolsMsg;
+  SymbolsBtn.Hint := rsShowSymbolsMsg;
   SymbolsBtn.ImageIndex := ShowSymbolsImageIndex;
 end;
 
 procedure TMsxEditorForm.StringGrid1ColRowInserted(Sender: TObject; IsColumn: Boolean;
   sIndex, tIndex: Integer);
-
+//
 // Initialize the selection in a PickList column when a new row is inserted
 // into a StringGrid -- shared handler for all of the editor's StringGrids.
-
+//
 var
-  C, R: Integer;
+  C: Integer;
+  R: Integer;
 begin
   with Sender as TStringGrid do
   begin
@@ -495,13 +542,14 @@ end;
 procedure TMsxEditorForm.StringGrid1SetEditText(Sender: TObject; ACol,
   ARow: Integer; const Value: string);
 begin
-  HasChanged := True;
+  HasChanged := true;
 end;
 
 procedure TMsxEditorForm.StringGrid1SelectEditor(Sender: TObject; aCol,
   aRow: Integer; var Editor: TWinControl);
 begin
-  if (aCol = 0) or (aCol = 2) then
+  if (aCol = 0)
+  or (aCol = 2) then
   begin
     Editor := StringGrid1.EditorByStyle(cbsPickList);
     if Editor is TCustomComboBox then
@@ -577,18 +625,18 @@ end;
 
 procedure TMsxEditorForm.StringGrid8EditButtonClick(Sender: TObject);
 var
-  S: String;
-  PatSelector: TPatternSelectorForm;
+  S: string;
+  PatSelector: TPatternEditorForm;
 begin
   with StringGrid8 do S := Cells[Col,Row];
-  PatSelector := TPatternSelectorForm.Create(self);
+  PatSelector := TPatternEditorForm.Create(self);
   try
     PatSelector.Setup(S);
     PatSelector.ShowModal;
     if PatSelector.ModalResult = mrOK then
     begin
       with StringGrid8 do Cells[Col,Row] := PatSelector.SelectedName;
-      if not SameText(PatSelector.SelectedName, S) then HasChanged := True;
+      if not SameText(PatSelector.SelectedName, S) then HasChanged := true;
     end;
   finally
     PatSelector.Free;
@@ -603,7 +651,7 @@ procedure TMsxEditorForm.CopyBtnClick(Sender: TObject);
 begin
   if Assigned(FocusedGrid) then with FocusedGrid do
   begin
-    CopyToClipboard(True);
+    CopyToClipboard(true);
   end;
 end;
 
@@ -611,7 +659,7 @@ procedure TMsxEditorForm.CutBtnClick(Sender: TObject);
 begin
   if Assigned(FocusedGrid) then with FocusedGrid do
   begin
-    CopyToClipboard(True);
+    CopyToClipboard(true);
     Clean(TRect(Selection), [gzNormal]);
   end;
 end;
@@ -624,33 +672,34 @@ begin
   end;
 end;
 
-procedure TMsxEditorForm.SelectionSetText(TheText: String);
-
+procedure TMsxEditorForm.SelectionSetText(TheText: string);
 // Used to paste text from the clipboard into the StringGrid that has focus
-
 var
-  StartCol,StartRow: Integer;
+  StartCol: Integer;
+  StartRow: Integer;
   Stream: TStringStream;
 
   ///// Nested procedure ////
   procedure LoadTSV(Fields: TStringList);
   var
-    i, aCol, aRow: Integer;
+    I: Integer;
+    aCol: Integer;
+    aRow: Integer;
     NewValue: string;
   begin
     if StartRow < FocusedGrid.RowCount then
     begin
       aRow := StartRow;
-      for i := 0 to Fields.Count-1 do
+      for I := 0 to Fields.Count - 1 do
       begin
-        aCol := StartCol + i;
-        if (aCol < FocusedGrid.ColCount) then
+        aCol := StartCol + I;
+        if aCol < FocusedGrid.ColCount then
         begin
-          NewValue := Fields[i];
+          NewValue := Fields[I];
           FocusedGrid.Cells[aCol, aRow] := NewValue;
         end;
       end;
-      inc(StartRow);
+      Inc(StartRow);
     end;
   end;
   //////////////////////////
@@ -667,8 +716,6 @@ begin
 end;
 
 procedure TMsxEditorForm.InsertBtnClick(Sender: TObject);
-var
-  S: array of String;
 begin
   if Assigned(FocusedGrid) then with FocusedGrid do
   begin
@@ -688,7 +735,7 @@ procedure TMsxEditorForm.MoveDnBtnClick(Sender: TObject);
 begin
   if Assigned(FocusedGrid) then with FocusedGrid do
   begin
-    MoveColRow(False, Row, Row+1);
+    if (RowCount > 1) then MoveColRow(false, Row, Row+1);
   end;
 end;
 
@@ -696,7 +743,7 @@ procedure TMsxEditorForm.MoveUpBtnClick(Sender: TObject);
 begin
   if Assigned(FocusedGrid) then with FocusedGrid do
   begin
-    MoveColRow(False, Row, Row-1);
+    if (RowCount > 1) then MoveColRow(false, Row, Row-1);
   end;
 end;
 
@@ -704,14 +751,15 @@ procedure TMsxEditorForm.SymbolsBtnClick(Sender: TObject);
 begin
   if SymbolsBtn.ImageIndex = ShowSymbolsImageIndex then
   begin
-    SymbolsPanel.Visible := True;
+    SymbolsPanel.Visible := true;
     SymbolsBtn.ImageIndex := HideSymbolsImageIndex;
-    SymbolsBtn.Hint := HideSymbolsMsg;
-  end else
+    SymbolsBtn.Hint := rsHideSymbolsMsg;
+  end
+  else
   begin
-    SymbolsPanel.Visible := False;
+    SymbolsPanel.Visible := false;
     SymbolsBtn.ImageIndex := ShowSymbolsImageIndex;
-    SymbolsBtn.Hint := ShowSymbolsMsg;
+    SymbolsBtn.Hint := rsShowSymbolsMsg;
   end;
 end;
 

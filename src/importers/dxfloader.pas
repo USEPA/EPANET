@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       dxfloader
  Description:  reads contents of a DXF file
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit dxfloader;
@@ -41,10 +39,10 @@ const
   luFEET   = 1;
   luMETERS = 2;
 
-  Keywords: array[0..4] of String =
+  Keywords: array[0..4] of string =
     ('POLYLINE', 'LWPOLYLINE', 'LINE', 'VERTEX', 'SEQEND');
 
-procedure LoadDxfFile(DxfFileName: String; Layers: TStringList;
+procedure LoadDxfFile(DxfFileName: string; Layers: TStringList;
             DxfOptions: TDxfOptions);
 
 function  FindEntitiesSection(var F: TextFile): Boolean;
@@ -58,66 +56,70 @@ uses
   main, project, projectbuilder, mapcoords, utils, epanet2;
 
 var
-  X, Y:        Double;      // Current coordinates being processed
-  StatusCode:  Integer;     // Current status of reading the DXF file
-  CoordCount:  Integer;     // Count of processed link coordinates
-  SnapTol:     Double;
+  X:              Double;
+  Y:              Double;   // Current coordinates being processed
+  SnapTol:        Double;
+  LengthUcf:      Double;
+  StatusCode:     Integer;  // Current status of reading the DXF file
+  CoordCount:     Integer;  // Count of processed link coordinates
   ComputeLengths: Boolean;
-  LengthUcf:   Double;
 
 function FindEntitiesSection(var F: TextFile): Boolean;
-// Find where 'ENTITIES' section of DXF file begins.
-
 var
   Code: Integer;
-  Value: String;
+  Value: string;
 begin
-  Result := True;
+  Result := true;
   while not Eof(F) do
   begin
     ReadLn(F, Code);
     ReadLn(F, Value);
-    if (Code = 2) and SameText(Value, 'ENTITIES') then exit;
+    if (Code = 2)
+    and SameText(Value, 'ENTITIES') then
+      exit;
   end;
-  Result := False;
+  Result := false;
 end;
 
 procedure DoKeyWord(Kw: Integer);
 begin
   case Kw of
-    _POLYLINE, _LWPOLYLINE:
-    begin
-      StatusCode := IN_POLYLINE;
-      CoordCount := 0;
-    end;
+    _POLYLINE,
+    _LWPOLYLINE:
+      begin
+        StatusCode := IN_POLYLINE;
+        CoordCount := 0;
+      end;
     _LINE:
-    begin
-      StatusCode := IN_LINE;
-      CoordCount := 0;
-    end;
+      begin
+        StatusCode := IN_LINE;
+        CoordCount := 0;
+      end;
     _VERTEX:
-    begin
-      if StatusCode <> IN_NONE then StatusCode := IN_VERTEX;
-    end;
+      begin
+        if StatusCode <> IN_NONE then StatusCode := IN_VERTEX;
+      end;
     _SEQEND:
-    begin
-      StatusCode := IN_NONE;
-      CoordCount := 0;
-    end;
+      begin
+        StatusCode := IN_NONE;
+        CoordCount := 0;
+      end;
   end;
 end;
 
 procedure AddVertex(Code: Integer; V: Double; var Vx: array of Double;
             var Vy: array Of Double; var Vcount: Integer);
-// Save the coordinates of a vertex read from file to arrays Vx and Vy.
-
 begin
   Inc(CoordCount);
   case Code of
-    10: X := V;
-    20: Y := V;
-    11: X := V;
-    21: Y := V;
+    10:
+        X := V;
+    20:
+        Y := V;
+    11:
+        X := V;
+    21:
+        Y := V;
   end;
   if not Odd(CoordCount) then
   begin
@@ -129,12 +131,10 @@ end;
 
 procedure GetLinkVertices(var F: TextFile; Layers: TStringList;
             var Vx: array of Double; var Vy: array Of Double; var Vcount: Integer);
-// Read the vertices that comprise a network link from the DXF file.
-
 var
   Code: Integer;
-  S: String;
-  V: Double;
+  S:    string;
+  V:    Double = 0;
 begin
   // Initialize status variables
   StatusCode := IN_NONE;
@@ -148,22 +148,29 @@ begin
     Readln(F,S);
 
     // Check if reached end of current link being processed
-    if SameText(S, 'SEQEND') and (StatusCode in [IN_LINE, IN_VERTEX]) then exit;
+    if SameText(S, 'SEQEND')
+    and (StatusCode in [IN_LINE, IN_VERTEX]) then
+      exit;
 
     // Process DXF code
     case Code of
-    // Key word text
-    0:  DoKeyWord(AnsiIndexText(S, Keywords));
+      0: // Key word text
+        DoKeyWord(AnsiIndexText(S, Keywords));
 
-    // Layer name
-    8:  if (StatusCode in [IN_LINE,IN_POLYLINE]) and (Layers.Count > 0) then
+
+      8: // Layer name
+        if (StatusCode in [IN_LINE,IN_POLYLINE])
+        and (Layers.Count > 0) then
+        begin
           if (Layers.IndexOf(S) < 0) then StatusCode := IN_NONE;
+        end;
 
-    // Coordinate vertex value
-    10, 11, 20, 21:
+
+      10, 11, 20, 21: // Coordinate vertex value
         begin
           utils.Str2Float(S, V);
-          if (StatusCode = IN_LINE) or (StatusCode = IN_VERTEX) then
+          if (StatusCode = IN_LINE)
+          or (StatusCode = IN_VERTEX) then
             AddVertex(Code,V,Vx,Vy,Vcount);
         end;
     end;
@@ -171,19 +178,18 @@ begin
 end;
 
 function GetNearestNode(P: TDoublePoint): Integer;
-//  Find the index of the project node closest to point P that is
-//  within the snap tolerance. Return 0 if there is no such node.
-
 var
-  J, Jmin: Integer;
-  D, Dmin: Double;
-  Pj: TDoublePoint;
+  J:    Integer;
+  Jmin: Integer;
+  D:    Double;
+  Dmin: Double;
+  Pj:   TDoublePoint = (X: 0; Y: 0);
 begin
   Jmin := 0;
   Dmin := 1.0e40;
 
   // Examine each project node
-  for J := 1 to project.GetItemCount(cNodes) do
+  for J := 1 to project.GetItemCount(ctNodes) do
   begin
 
     // Find Manhattan distance between point P and the node point Pj
@@ -199,93 +205,73 @@ begin
   end;
 
   // Check that minimum distance is within snap tolerance
-  if Dmin <= SnapTol then Result := Jmin else Result := 0;
+  if Dmin <= SnapTol then
+    Result := Jmin
+  else
+    Result := 0;
 end;
 
 function AddNode(P: TDoublePoint): Integer;
-// Add a node with coordinates P to the project.
-
 var
-  ID: String;
-  Err: Integer;
-  NodeIndex: Integer;
+  ID:        string;
+  Err:       Integer;
+  NodeIndex: Integer = 0;
 begin
-  // Obtain an ID name for the node
   Result := 0;
-  ID := projectbuilder.FindUnusedID(cNodes, project.nJunction);
-
-  // Try to add the node to the EPANET project
+  ID := projectbuilder.FindUnusedID(ctNodes, project.ntJunction);
   Err := epanet2.ENaddnode(PAnsiChar(ID), EN_JUNCTION, NodeIndex);
-
-  // Set node's coordinates and default elevation
   if Err = 0 then
   begin
     epanet2.ENsetcoord(NodeIndex, P.X, P.Y);
     epanet2.ENsetnodevalue(NodeIndex, EN_ELEVATION,
-      StrToFloatDef(project.DefProps[1], 0));
+      StrToFloatDef(project.DefProps[ptNodeElev], 0));
     Result := NodeIndex;
   end;
 end;
 
-function GetEndNode(P: TDoublePoint): String;
-// Get the name of a project node that is close to the end node
-// of a link with coordinates P. Add a new node if an existing
-// can't be found.
-
+function GetEndNode(P: TDoublePoint): string;
 var
   J: Integer;
 begin
   // Link node is within snap tolerance of an existing node
   Result := '';
   J := GetNearestNode(P);
-  if J > 0 then Result := project.GetID(cNodes, J)
+  if J > 0 then
+    Result := project.GetID(ctNodes, J)
 
   // Otherwise add a new node
-  else begin
+  else
+  begin
     J := AddNode(P);
-    if J > 0 then Result := project.GetID(cNodes, J);
+    if J > 0 then Result := project.GetID(ctNodes, J);
   end;
 end;
 
 procedure SetLinkProps(LinkIndex: Integer);
-// Assign default properties to a network link read from the DXF file.
-
 var
-  Len, Diameter, Roughness: Single;
+  Len: Single;
+  Diameter: Single;
+  Roughness: Single;
 begin
-  // Get default pipe length
-  Len := StrToFloatDef(project.DefProps[4], 0.0);
-
-  // Compute it if that option was selected
-  if project.AutoLength or ComputeLengths then
+  Len := StrToFloatDef(project.DefProps[ptPipeLen], 0.0);
+  if project.AutoLength
+  or ComputeLengths then
     Len := project.FindLinkLength(LinkIndex) * LengthUcf;
-
-  // Assign pipe diameter
-  Diameter := StrToFloatDef(project.DefProps[5], 0.0);
-
-  // Assign pipe roughness
-  Roughness := StrToFloatDef(project.DefProps[6], 0.0);
-
-  // Assign properties to the pipe (last argument is for minor loss coeff.)
+  Diameter := StrToFloatDef(project.DefProps[ptPipeDiam], 0.0);
+  Roughness := StrToFloatDef(project.DefProps[ptPipeRough], 0.0);
   epanet2.ENsetpipedata(LinkIndex, Len, Diameter, Roughness, 0.0);
 end;
 
-function NewLink(StartNode: String; EndNode: String): Integer;
-// Add a new link to the project between nodes StartNode and EndNode.
-
+function NewLink(StartNode: string; EndNode: string): Integer;
 var
-  LinkIndex, Err: Integer;
-  LinkID: String;
+  LinkIndex: Integer = 0;
+  Err:       Integer;
+  LinkID:    string;
 begin
-  // Assign link an ID name
   Result := 0;
-  LinkID := projectbuilder.FindUnusedID(cLinks, EN_PIPE);
-
-  // Try adding it to the project
+  LinkID := projectbuilder.FindUnusedID(ctLinks, EN_PIPE);
   Err := epanet2.ENaddlink(Pchar(LinkID), EN_PIPE, PChar(StartNode),
     PChar(EndNode), LinkIndex);
-
-  // Set its properties -- return its index in the project's list of links
   if Err = 0 then
   begin
     SetLinkProps(LinkIndex);
@@ -295,11 +281,9 @@ end;
 
 procedure AddLink(var Vx: array of Double; var Vy: array Of Double;
             Vcount: Integer);
-// Add a new link and its end nodes to the project.
-
 var
-  StartNode: String;
-  EndNode: String;
+  StartNode: string;
+  EndNode: string;
   LinkIndex: Integer;
   P: TDoublePoint;
 begin
@@ -320,14 +304,13 @@ begin
 
   // Add the link and its vertices to the project
   LinkIndex := NewLink(StartNode, EndNode);
-  if (LinkIndex > 0) and (Vcount > 2) then
+  if (LinkIndex > 0)
+  and (Vcount > 2) then
     epanet2.ENsetvertices(LinkIndex, Vx[1], Vy[1], Vcount-2);
 end;
 
-procedure LoadDxfFile(DxfFileName: String; Layers: TStringList;
+procedure LoadDxfFile(DxfFileName: string; Layers: TStringList;
             DxfOptions: TDxfOptions);
-// Extract a set of pipe links and their end nodes from a DXF file.
-
 var
   F: TextFile;
   Vx: array[0..project.MAX_VERTICES] of Double;
@@ -337,9 +320,11 @@ begin
   SnapTol := DxfOptions.SnapTol;
   ComputeLengths := DxfOptions.ComputeLengths;
   LengthUcf := 1.0;
-  if (DxfOptions.CoordUnits = luMETERS) and (project.GetUnitsSystem = usUS) then
+  if (DxfOptions.CoordUnits = luMETERS)
+  and (project.GetUnitsSystem = usUS) then
     LengthUcf := 3.28084
-  else if (DxfOptions.CoordUnits = luFEET) and (project.GetUnitsSystem = usSI) then
+  else if (DxfOptions.CoordUnits = luFEET)
+  and (project.GetUnitsSystem = usSI) then
     LengthUcf := 1 / 3.28084;
 
   AssignFile(F, DxfFileName);
@@ -352,9 +337,9 @@ begin
       GetLinkVertices(F, Layers, Vx, Vy, Vcount);
       AddLink(Vx, Vy, Vcount);
     end;
-    MainForm.MapFrame.SetExtent(mapcoords.GetBounds(MainForm.MapFrame.GetExtent));
+    MainForm.MapFrame.SetExtent(MainForm.MapFrame.Map.GetBounds);
     MainForm.MapFrame.DrawFullextent;
-    Project.HasChanged := True;
+    Project.HasChanged := true;
     Project.UpdateResultsStatus;
   finally
     CloseFile(F);

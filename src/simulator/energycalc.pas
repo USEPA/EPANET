@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       energycalc
  Description:  calculates an energy balance for the project
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit energycalc;
@@ -19,20 +17,21 @@ uses
   Classes, SysUtils, Dialogs;
 
 const
-  eInflows  = 1;
-  ePumping  = 2;
-  eTankOut  = 3;
-  eDemands  = 4;
-  eLeakage  = 5;
-  eFriction = 6;
-  eTankIn   = 7;
-  eMinUse   = 8;
+  // Energy balance components
+  eInflows  = 1; // External sources
+  ePumping  = 2; // Internal pumping
+  eTankOut  = 3; // Storage outflow
+  eDemands  = 4; // Consumer demand
+  eLeakage  = 5; // Leakage loss
+  eFriction = 6; // Friction loss
+  eTankIn   = 7; // Storage inflow
+  eMinUse   = 8; // Energy to meet demand at stipulated pressure
 
 var
-  Energy : array[eInflows..eMinUse] of Double;
-  Preq : Single;
-  PreqStr : String;
-  Tsum : Integer;
+  Energy:   array[eInflows..eMinUse] of Double;
+  Preq:     Single;
+  PreqStr:  string;
+  Tsum:     Integer;
 
   procedure Start;
   procedure Update(T: Integer; Dt: Integer);
@@ -41,116 +40,172 @@ var
 implementation
 
 uses
-  project, epanet2;
+  project, epanet2, resourcestrings;
 
 const
   SECperHR  = 3600;
   SECperDAY = 86400;
   MperFT = 0.3048;
-  QperCFS : array[EN_CFS .. EN_CMS] of Double =
-    (1.0,
-    448.831,     // GPMperCFS
-    0.64632,     // MGDperCFS
-    0.5382,      // IMGDperCFS
-    1.9837,      // AFDperCFS
-    28.317,      // LPSperCFS
-    1699.0,      // LPMperCFS
-    2.4466,      // MLDperCFS
-    101.94,      // CMHperCFS
-    2446.6,      // CMDperCFS
-    0.028317);   // CMSperCFS
+
 var
-  SpGrav : Single;
+  SpGrav: Single;
 
 procedure Start;
+//
+// Initialize the energy balance.
+//
 var
-  I, DmndModel: Integer;
-  Pmin, Pexp, Punits: Single;
+  I: Integer;
+  DmndModel: Integer = 0;
+  Pmin: Single = 0;
+  Pexp: Single = 0;
+  Punits: Single = 0;
 begin
   Tsum := 0;
+  SpGrav := 1;
   for I := eInflows to eMinuse do Energy[I] := 0;
-  ENgetdemandmodel(DmndModel, Pmin, Preq, Pexp);
-  ENgetoption(EN_PRESS_UNITS, Punits);
-  ENgetoption(EN_SP_GRAVITY, SpGrav);
+  epanet2.ENgetdemandmodel(DmndModel, Pmin, Preq, Pexp);
+  epanet2.ENgetoption(EN_PRESS_UNITS, Punits);
+  epanet2.ENgetoption(EN_SP_GRAVITY, SpGrav);
   PreqStr := Format('%.1f', [Preq]);
+
+  // Preq is the service pressure used by a Pressure Dependent
+  // Demand model. It is used here to determine the minimum energy
+  // required to meet demands at that pressure. It is converted to
+  // feet if using US units or to meters for SI units.
   case Round(Punits) of
-  EN_PSI:
-    begin
-      Preq := Preq / 0.4333;      // Psi -> Feet
-      PreqStr := PreqStr + ' psi';
-    end;
-  EN_KPA:
-    begin
-      Preq := Preq / 9.8066;      // Kpa -> Meters
-      PreqStr := PreqStr + ' kpa';
-    end;
-  else PreqStr := PreqStr + ' m';
+    EN_PSI:
+      begin
+        Preq := Preq / 0.4333;
+        PreqStr := PreqStr + ' ' + rsPsi;
+      end;
+    EN_KPA:
+      begin
+        Preq := Preq * 0.334553;
+        PreqStr := PreqStr + ' ' + rsKpa;
+      end;
+    EN_METERS:
+      begin
+        Preq := Preq / MperFT;
+        PreqStr := PreqStr + ' ' + rsMeter;
+      end;
+    EN_BAR:
+      begin
+        Preq := Preq * 33.4553;
+        PreqStr := PreqStr + ' ' + rsBar;
+      end;
+    EN_FEET:
+      PreqStr := PreqStr + ' ' + rsFeet;
   end;
+
+  // Convert Preq to meters if using SI units
+  if project.GetUnitsSystem = usSI then
+    Preq := Preq * MperFt;
   Preq := Preq / SpGrav;
 end;
 
 procedure UpdateNodeEnergy(Dt: Integer);
+//
+// Update energy contained in external flows at junction nodes and
+// internal flows from storage nodes over time step Dt.
+//
 var
-  I, N : Integer;
-  Qd, Ql, H, El : Single;
+  I:    Integer;
+  N:    Integer;
+  E:    Single;
+  Qd:   Single = 0;
+  Ql:   Single = 0;
+  H:    Single = 0;
+  El:   Single = 0;
+  Hmin: Single = 0;
 begin
-  N := project.GetItemCount(cNodes);
+  // Hmin is the lowest negative head in the network
+  N := project.GetItemCount(ctNodes);
   for I := 1 to N do
   begin
-    ENgetnodevalue(I, EN_ELEVATION, El);
-    ENgetnodevalue(I, EN_HEAD, H);
-    ENgetnodevalue(I, EN_DEMAND, Qd);
-    ENgetnodevalue(I, EN_LEAKAGEFLOW, Ql);
+    epanet2.ENgetnodevalue(I, EN_HEAD, H);
+    if H < Hmin then Hmin := H;
+  end;
+
+  // Analyze each network node
+  for I := 1 to N do
+  begin
+
+    // Retrieve node's elevation, head, demand & leakage
+    epanet2.ENgetnodevalue(I, EN_ELEVATION, El);
+    epanet2.ENgetnodevalue(I, EN_HEAD, H);
+    epanet2.ENgetnodevalue(I, EN_DEMAND, Qd);
+    epanet2.ENgetnodevalue(I, EN_LEAKAGEFLOW, Ql);
+
+    // Subtract leakage to find consumer demand
     Qd := Qd - Ql;
 
+    // Adjust heads so there are no negative values
+    H := H - Hmin;
+
+    // Find energy content of demand flow over the time step
+    E := Abs(Qd * H * Dt);
+
     case project.GetNodeType(I) of
-    nJunction:
-      begin
-        if Qd > 0 then
+      ntJunction:
         begin
-          Energy[eDemands] := Energy[eDemands] + (Qd * H * Dt);
-          Energy[eMinUse] := Energy[eMinUse] + (Qd * (El + Preq) * Dt);
-        end
-        else
-          Energy[eInflows] := Energy[eInflows] - (Qd * H * Dt);
-        if Ql > 0 then
-          Energy[eLeakage] := Energy[eLeakage] + (Ql * H * Dt)
-        else
-          Energy[eInflows] := Energy[eInflows] - (Ql * H * Dt);
-      end;
+          // Update energy required to meet demend at pressure Preq
+          Energy[eMinUse] := Energy[eMinUse] +
+              Abs(Qd * (El + Preq - Hmin) * Dt);
 
-    nReservoir: // Qd < 0 for outflow, > 0 for inflow
-      begin
-        if Qd < 0 then
-          Energy[eInflows] := Energy[eInflows] - (Qd * H * Dt)
-        else
-          Energy[eDemands] := Energy[eDemands] + (Qd * H * Dt);
-      end;
+          // Update energy in demand flow
+          if Qd > 0 then
+             Energy[eDemands] := Energy[eDemands] + E
+          else
+            Energy[eInflows] := Energy[eInflows] + E;
 
-    nTank: // Qd > 0 for inflow, < 0 for outflow
-      if Qd > 0 then
-        Energy[eTankIn] := Energy[eTankIn] + (Qd * H * Dt)
-      else
-        Energy[eTankOut] := Energy[eTankOut] - (Qd * H * Dt);
+          // Update energy in leakage flow
+          if Ql > 0 then
+            Energy[eLeakage] := Energy[eLeakage] + (Ql * H * Dt)
+          else
+            Energy[eInflows] := Energy[eInflows] - (Ql * H * Dt);
+        end;
+
+      ntReservoir: // Qd < 0 for outflow, > 0 for inflow
+        begin
+          if Qd < 0 then
+            Energy[eInflows] := Energy[eInflows] + E
+          else
+            Energy[eDemands] := Energy[eDemands] + E;
+        end;
+
+      ntTank: // Qd > 0 for inflow, < 0 for outflow
+        if Qd > 0 then
+          Energy[eTankIn] := Energy[eTankIn] + E
+        else
+          Energy[eTankOut] := Energy[eTankOut] + E;
     end;
   end;
 end;
 
 procedure UpdateLinkEnergy(Dt: Integer);
+//
+// Update energy added by pumping and lost by friction over time period Dt.
+//
 var
-  I, N, N1, N2 : Integer;
-  Q : Single;
-  H1, H2, P : Single;
+  I:  Integer;
+  N:  Integer;
+  N1: Integer = 0;
+  N2: Integer = 0;
+  Q:  Single = 0;
+  H1: Single = 0;
+  H2: Single = 0;
+  P:  Single;
 begin
-  N := project.GetItemCount(cLinks);
+  N := project.GetItemCount(ctLinks);
   for I := 1 to N do
   begin
-    project.GetLinkNodes(I, N1, N2);
-    ENgetlinkvalue(I, EN_FLOW, Q);
-    ENgetnodevalue(N1, EN_HEAD, H1);
-    ENgetnodevalue(N2, EN_HEAD, H2);
+    if not project.GetLinkNodes(I, N1, N2) then continue;
+    epanet2.ENgetlinkvalue(I, EN_FLOW, Q);
+    epanet2.ENgetnodevalue(N1, EN_HEAD, H1);
+    epanet2.ENgetnodevalue(N2, EN_HEAD, H2);
     P := Abs((H1 - H2) * Q) * Dt;
-    if project.GetLinkType(I) = lPump then
+    if project.GetLinkType(I) = ltPump then
       Energy[ePumping] := Energy[ePumping] + P
     else
       Energy[eFriction] := Energy[eFriction] + P;
@@ -158,10 +213,17 @@ begin
 end;
 
 procedure Update(T: Integer; Dt: Integer);
+//
+// Update energy balance components over a full day for a snapshot
+// analysis or for time period Dt for extended period analysis.
+//
 begin
   if Dt = 0 then
   begin
-    if T = 0 then Dt := SECperDAY else exit;
+    if T = 0 then
+      Dt := SECperDAY
+    else
+      exit;
   end;
   UpdateNodeEnergy(Dt);
   UpdateLinkEnergy(Dt);
@@ -169,15 +231,20 @@ begin
 end;
 
 procedure Finish;
+//
+// Complete energy balance by converting cumulative H*Q units to kwh/day
+// for each energy balance component.
+//
 var
-  I : Integer;
-  Ecf, Tcf : Double;
+  I: Integer;
+  Ecf: Double;
+  Tcf: Double;
 begin
   // Ecf converts H*Q from user units to (ft)*(gpm)/5310 = kw
-  Ecf := QperCFS[EN_GPM] / QperCFS[project.FlowUnits] / 5310;
+  Ecf := project.FlowUcf[EN_GPM] / project.FlowUcf[project.FlowUnits] / 5310;
   if project.GetUnitsSystem = usSI then Ecf := Ecf / MperFt;
 
-  // Tcf adjusts from kw-sec to kw-hr/day
+  // Tcf adjusts from kw-sec to kwh/day
   Tcf := SECperDAY / SECperHR / Tsum;
 
   // Energy used by each category in kwh/day

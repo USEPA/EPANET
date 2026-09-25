@@ -8,9 +8,9 @@ object ThemePaletteForm: TThemePaletteForm
   ClientHeight = 464
   ClientWidth = 236
   Color = clWindow
-  OnCreate = FormCreate
   Position = poOwnerFormCenter
-  LCLVersion = '3.2.0.0'
+  LCLVersion = '4.4.0.0'
+  OnCreate = FormCreate
   object Button1: TButton
     Left = 38
     Height = 25
@@ -64,9 +64,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton1: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 26
-    Width = 18
+    Width = 14
     Checked = True
     TabOrder = 0
     TabStop = True
@@ -103,9 +103,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton2: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 59
-    Width = 18
+    Width = 14
     TabOrder = 1
   end
   object Box11: TShape
@@ -140,9 +140,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton3: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 92
-    Width = 18
+    Width = 14
     TabOrder = 2
   end
   object Box16: TShape
@@ -177,9 +177,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton4: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 125
-    Width = 18
+    Width = 14
     TabOrder = 3
   end
   object Box21: TShape
@@ -214,9 +214,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton5: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 158
-    Width = 18
+    Width = 14
     TabOrder = 4
   end
   object Box26: TShape
@@ -251,9 +251,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton6: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 191
-    Width = 18
+    Width = 14
     TabOrder = 5
   end
   object Box31: TShape
@@ -288,9 +288,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton7: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 224
-    Width = 18
+    Width = 14
     TabOrder = 6
   end
   object Box36: TShape
@@ -325,9 +325,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton8: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 257
-    Width = 18
+    Width = 14
     TabOrder = 7
   end
   object Box41: TShape
@@ -362,9 +362,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton9: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 290
-    Width = 18
+    Width = 14
     TabOrder = 8
   end
   object Box46: TShape
@@ -399,9 +399,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton10: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 321
-    Width = 18
+    Width = 14
     TabOrder = 9
   end
   object Box51: TShape
@@ -436,9 +436,9 @@ object ThemePaletteForm: TThemePaletteForm
   end
   object RadioButton11: TRadioButton
     Left = 201
-    Height = 17
+    Height = 15
     Top = 353
-    Width = 18
+    Width = 14
     TabOrder = 10
   end
   object Box56: TShape
@@ -474,9 +474,9 @@ object ThemePaletteForm: TThemePaletteForm
   object RadioButton12: TRadioButton
     Tag = 11
     Left = 201
-    Height = 17
+    Height = 15
     Top = 385
-    Width = 18
+    Width = 14
     TabOrder = 11
   end
 end

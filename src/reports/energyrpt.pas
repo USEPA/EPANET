@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       energyrpt
- Description:  a frame that displays an energy balance report
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Description:  a frame to report a simulation's energy balance
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit energyrpt;
@@ -17,38 +15,35 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, ExtCtrls, StdCtrls, Menus, Buttons,
-  Dialogs, Graphics, Math, Clipbrd, Types, TAGraph, TASeries, TASources,
-  TAGUIConnectorBGRA;
+  Dialogs, Graphics, Math, Clipbrd, ComCtrls, Types, TAGraph, TASeries,
+  TASources, TAGUIConnectorBGRA;
 
 type
 
   { TEnergyRptFrame }
 
   TEnergyRptFrame = class(TFrame)
-    Chart1: TChart;
-    Chart1PieSeries1: TPieSeries;
-    Chart1PieSeries2: TPieSeries;
+    Memo1: TMemo;
+    PageControl1:           TPageControl;
+    Panel2: TPanel;
+    TabSheet1:              TTabSheet;
+    TabSheet2:              TTabSheet;
+    Chart1:                 TChart;
+    Chart1PieSeries1:       TPieSeries;
+    ListChartSource1:       TListChartSource;
     ChartGUIConnectorBGRA1: TChartGUIConnectorBGRA;
-    ExportMenu: TPopupMenu;
-    PerformanceLabel: TLabel;
-    MetricsLabel: TLabel;
-    MetricValuesLabel: TLabel;
-    ReqPressLabel: TLabel;
-    ListChartSource1: TListChartSource;
-    MnuCopy: TMenuItem;
-    MnuSave: TMenuItem;
-    MainPanel: TPanel;
-    Shape1: TShape;
-    Shape2: TShape;
-    procedure CloseBtnClick(Sender: TObject);
-    procedure FrameResize(Sender: TObject);
+    ExportMenu:             TPopupMenu;
+    MnuCopy:                TMenuItem;
+    MnuSave:                TMenuItem;
+    Panel1:                 TPanel;
+
     procedure MnuCopyClick(Sender: TObject);
     procedure MnuSaveClick(Sender: TObject);
+
   private
-    procedure CopyMainPanel(FileName: String);
-    procedure SaveToPngFile(Bmp: TBitmap; FileName: String);
 
   public
+    procedure Initreport;
     procedure ClearReport;
     procedure RefreshReport;
     procedure ShowPopupMenu;
@@ -60,17 +55,12 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, energycalc;
+  main, config, energycalc, resourcestrings;
 
-procedure TEnergyRptFrame.CloseBtnClick(Sender: TObject);
+procedure TEnergyRptFrame.InitReport;
 begin
-  MainForm.ReportFrame.CloseReport;
-end;
-
-procedure TEnergyRptFrame.FrameResize(Sender: TObject);
-begin
-  MainPanel.Left := (self.ClientWidth - MainPanel.Width) div 2;
-  Chart1.Left := MainPanel.Left + 24;
+  Memo1.Font.Name := config.MonoFont;
+  PageControl1.ActivePageIndex := 0;
 end;
 
 procedure TEnergyRptFrame.ShowPopupMenu;
@@ -83,17 +73,33 @@ end;
 
 procedure TEnergyRptFrame.MnuCopyClick(Sender: TObject);
 begin
-  CopyMainPanel('');
+  if PageControl1.ActivePageIndex = 0 then
+    Chart1.CopyToClipboardBitmap
+  else begin
+    Memo1.SelectAll;
+    Clipboard.AsText := Memo1.Text;
+    Memo1.SelLength := 0;
+  end;
 end;
 
 procedure TEnergyRptFrame.MnuSaveClick(Sender: TObject);
 begin
-  with MainForm.SaveDialog1 do
+  if PageControl1.ActivePageIndex = 0 then with MainForm.SaveDialog1 do
   begin
     FileName := '*.png';
-    Filter := 'Portable Network Graphic File|*.png';
+    Filter := rsPngFile;
     DefaultExt := '*.png';
-    if Execute then CopyMainPanel(FileName);
+    if Execute then Chart1.SaveToFile(TPortableNetworkGraphic, FileName)
+  end
+  else with MainForm.SaveDialog1 do
+  begin
+    FileName := '*.txt';
+    Filter := rsTextFile;
+    DefaultExt := '*.txt';
+    if Execute then
+    begin
+      Memo1.Lines.SaveToFile(FileName);
+    end;
   end;
 end;
 
@@ -104,111 +110,87 @@ end;
 
 procedure TEnergyRptFrame.RefreshReport;
 var
-  I: Integer;
-  Einput, Eoutput, Efactor, E: Double;
-  Metric: array[0..5] of String;
-  Eunits, Txt: String;
+  I:       Integer;
+  Einput:  Double;
+  Eoutput: Double;
+  Efactor: Double;
+  E:       Double;
+  Metric: array[0..5] of string;
+  Eunits: string;
 begin
   // Total energy input and output
-  Einput := (Energy[eInflows] + Energy[ePumping] + Energy[eTankOut]);
-  Eoutput := (Energy[eDemands] + Energy[eLeakage] + Energy[eFriction] +
-    Energy[eTankIn]);
+  Einput := energycalc.Energy[eInflows] + energycalc.Energy[ePumping] +
+            energycalc.Energy[eTankOut];
+  Eoutput := energycalc.Energy[eDemands] + energycalc.Energy[eLeakage] +
+             energycalc.Energy[eFriction] + energycalc.Energy[eTankIn];
 
   // Choose between Kwh and MwH units
   if (Einput > 1000) or (Eoutput > 1000) then
   begin
     Efactor := 1000;
-    Eunits := 'MwH/Day';
+    Eunits := rsMwHperDay;
   end
   else
   begin
     Efactor := 1;
-    Eunits := 'KwH/Day';
+    Eunits := rsKwHperDay;
   end;
 
   // Assign energy values to chart
   for I := eInflows to eTankIn do
   begin
-    E := Energy[I] / Efactor;
+    E := energycalc.Energy[I] / Efactor;
     if E = 0 then E := NAN;
     ListChartSource1[I-1]^.Y := E;
   end;
 
   // Update chart title
   Chart1.Title.Text.Clear;
-  Chart1.Title.Text.Add('System Energy Balance (' + Eunits + ')');
+  Chart1.Title.Text.Add(rsEnergyBalance + ' (' + Eunits + ')');
 
   // Update chart footer
   Chart1.Foot.Text.Clear;
-  Chart1.Foot.Text.Add(Format('Total Energy Supplied (Es):    %.1f %s',
-    [Einput / Efactor, Eunits]));
-  Chart1.Foot.Text.Add(Format('Total Energy Consumed:       %.1f %s',
-    [Eoutput / Efactor, Eunits]));
+  Chart1.Foot.Text.Add(Format(rsEnergySupplied, [Einput / Efactor, Eunits]));
+  Chart1.Foot.Text.Add(Format(rsEnergyConsumed, [Eoutput / Efactor, Eunits]));
   Chart1.Refresh;
 
   // Assign performance metrics
-  ReqPressLabel.Caption := Format('to meet demand at %s', [energycalc.PreqStr]);
-  for I := 0 to 5 do Metric[I] := 'N/A';
+  Memo1.Clear;
+  for I := 0 to 5 do Metric[I] := rsNA;
   if Einput > 0 then
   begin
-    Metric[0] := Format('%.2f', [Energy[eDemands] / Einput]);
-    Metric[1] := Format('%.2f', [Energy[eFriction] / Einput]);
-    Metric[2] := Format('%.2f', [Energy[eLeakage] / Einput]);
+    Metric[0] := Format('%.2f', [energycalc.Energy[eDemands] / Einput]);
+    Metric[1] := Format('%.2f', [energycalc.Energy[eFriction] / Einput]);
+    Metric[2] := Format('%.2f', [energycalc.Energy[eLeakage] / Einput]);
   end;
-  if Energy[eMinUse] > 0 then
+  if energycalc.Energy[eMinUse] > 0 then
   begin
-    Metric[3] := Format('%.2f', [Einput / Energy[eMinUse]]);
-    Metric[4] := Format('%.2f', [Energy[eDemands] / Energy[eMinUse]]);
-    Metric[5] := Format('%.2f', [Energy[eMinUse] / Efactor]);
+    Metric[3] := Format('%.2f', [Einput / energycalc.Energy[eMinUse]]);
+    Metric[4] := Format('%.2f', [energycalc.Energy[eDemands] /
+                                 energycalc.Energy[eMinUse]]);
+    Metric[5] := Format('%.2f', [energycalc.Energy[eMinUse] / Efactor]);
   end;
-  Txt := Metric[0];
-  for I := 1 to 5 do
+
+  with Memo1.Lines do
   begin
-    Txt := Txt + LineEnding + LineEnding + Metric[I];
+    Add('');
+    Add('  ' + rsMetricsHeading);
+    Add('  ' + rsHeading4);
+    Add('');
+    Add('  ' + rsMetricsText1 + '     ' + Metric[0]);
+    Add('');
+    Add('  ' + rsMetricsText2 + '     ' + Metric[1]);
+    Add('');
+    Add('  ' + rsMetricsText3 + '     ' + Metric[2]);
+    Add('');
+    Add('  ' + rsMetricsText4 + '     ' + Metric[3]);
+    Add('');
+    Add('  ' + rsMetricsText5 + '     ' + Metric[4]);
+    Add('');
+    Add('  ' + Format(rsMetricsText6, [Eunits]) + '    ' + Metric[5]);
+    Add('  ' + Format(rsToMeetDemand, [energycalc.PreqStr]));
   end;
-  MetricValuesLabel.Caption := Txt;
-end;
 
-procedure TEnergyRptFrame.CopyMainPanel(FileName: String);
-var
-  Bmp: TBitmap;
-  R1, R2: TRect;
-begin
-  Bmp := TBitmap.Create;
-  try
-    // R1 contains the Chart's area
-    R1 := Rect(0, 0, Chart1.Width-1, Chart1.Height-1);
-
-    // R2 contains the area on the MainPanel where the Chart appears
-    R2 := R1;
-    OffsetRect(R2, Chart1.Left - MainPanel.Left, Chart1.Top);
-
-    // Copy the MainPanel's contents to bitmap Bmp -- the Chart is not included
-    Bmp.SetSize(MainPanel.Width, MainPanel.Height);
-    MainPanel.PaintTo(Bmp.Canvas,0,0);
-
-    // Copy the Chart onto bitmap Bmp in its properly offset location
-    Bmp.Canvas.CopyRect(R2, Chart1.Canvas, R1);
-
-    // Save bitmap Bmp either to clipboard or file
-    if Length(FileName) = 0 then Bmp.SaveToClipboardFormat(CF_BITMAP)
-    else SaveToPngFile(Bmp, FileName);
-  finally
-    Bmp.Free;
-  end;
-end;
-
-procedure TEnergyRptFrame.SaveToPngFile(Bmp: TBitmap; FileName: String);
-var
-  Pic: TPicture;
-begin
-  Pic := TPicture.Create;
-  try
-    Pic.Assign(Bmp);
-    Pic.SaveToFile(FileName, 'png');
-  finally
-    Pic.Free;
-  end;
 end;
 
 end.

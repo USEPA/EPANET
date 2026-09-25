@@ -1,8 +1,8 @@
 <doc>
-    <titleimg>images/logo.gif</titleimg>
-    <title>EPANET Tutorial</title>
+    <titleimg></titleimg>
+    <title>EPANET-UI Tutorial</title>
     <url>https://www.epa.gov/water-research/epanet</url>
-    <version>2.3</version>
+    <version></version>
     <theme>tutorial.css</theme>
     <lang>en</lang>
     <rslt>Search Results</rslt>
@@ -18,6 +18,6 @@
     <warn>Warning</warn>
     <prev>Previous</prev>
     <next>Next</next>
-    <copy>U.S. Environmental Protection Agency</copy>
+    <copy>2025</copy>
 </doc>
 <include tutorial.md>

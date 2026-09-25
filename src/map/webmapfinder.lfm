@@ -8,19 +8,19 @@ object WebMapFinderForm: TWebMapFinderForm
   ClientHeight = 93
   ClientWidth = 392
   KeyPreview = True
-  OnCreate = FormCreate
   Position = poMainFormCenter
-  LCLVersion = '2.2.0.4'
+  LCLVersion = '4.4.0.0'
+  OnCreate = FormCreate
   object Edit1: TEdit
     Left = 16
     Height = 23
     Hint = 'Enter a place name, address, or lat,lng values'
     Top = 49
     Width = 359
-    OnKeyDown = Edit1KeyDown
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
+    OnKeyDown = Edit1KeyDown
   end
   object Label1: TLabel
     Left = 17

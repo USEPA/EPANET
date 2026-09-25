@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       tseriesselector
  Description:  A frame used to select network objects and parameters
                to display in a time series report.
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit tseriesselector;
@@ -25,59 +23,65 @@ type
   { TTseriesSelectorFrame }
 
   TTseriesSelectorFrame = class(TFrame)
-    CancelBtn2: TButton;
-    AddBtn: TBitBtn;
-    TimeOfDayBox: TCheckBox;
-    EditBtn: TBitBtn;
-    DeleteBtn: TBitBtn;
-    UpBtn: TBitBtn;
-    DnBtn: TBitBtn;
-    AcceptBtn: TButton;
-    CloseBtn: TSpeedButton;
-    ObjectTypeCombo: TComboBox;
-    ParamCombo: TComboBox;
-    ObjectNameEdit: TEdit;
-    LegendLabelEdit: TEdit;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
-    AxisLeftBtn: TRadioButton;
-    AxisRightBtn: TRadioButton;
+    Notebook1:        TNotebook;
+    SeriesListPage:   TPage;
     SeriesSelectPage: TPage;
-    ViewBtn: TButton;
-    CancelBtn1: TButton;
-    Label1: TLabel;
-    SeriesListBox: TListBox;
-    Notebook1: TNotebook;
-    SeriesListPage: TPage;
-    TopPanel: TPanel;
+    SeriesListBox:    TListBox;
+    ViewBtn:          TButton;
+    CancelBtn1:       TButton;
+    CancelBtn2:       TButton;
+    AcceptBtn:        TButton;
+    CloseBtn:         TSpeedButton;
+    AddBtn:           TBitBtn;
+    EditBtn:          TBitBtn;
+    DeleteBtn:        TBitBtn;
+    UpBtn:            TBitBtn;
+    DnBtn:            TBitBtn;
+    TimeOfDayBox:     TCheckBox;
+    ObjectTypeCombo:  TComboBox;
+    ParamCombo:       TComboBox;
+    ObjectNameEdit:   TEdit;
+    LegendLabelEdit:  TEdit;
+    Label1:           TLabel;
+    Label2:           TLabel;
+    Label3:           TLabel;
+    Label4:           TLabel;
+    Label5:           TLabel;
+    Label6:           TLabel;
+    Label7:           TLabel;
+    AxisLeftBtn:      TRadioButton;
+    AxisRightBtn:     TRadioButton;
+    TopPanel:         TPanel;
+
     procedure AcceptBtnClick(Sender: TObject);
     procedure AddBtnClick(Sender: TObject);
     procedure CancelBtn1Click(Sender: TObject);
     procedure CancelBtn2Click(Sender: TObject);
     procedure CloseBtnClick(Sender: TObject);
+    procedure ObjectNameEditChange(Sender: TObject);
     procedure ObjectTypeComboChange(Sender: TObject);
     procedure DeleteBtnClick(Sender: TObject);
     procedure DnBtnClick(Sender: TObject);
     procedure EditBtnClick(Sender: TObject);
+    procedure ParamComboChange(Sender: TObject);
     procedure ViewBtnClick(Sender: TObject);
     procedure UpBtnClick(Sender: TObject);
+
   private
-    SeriesAction: Integer;
+    SeriesAction:  Integer;
     TimeOfDayPlot: Boolean;
-    HasChanged: Boolean;
+    HasChanged:    Boolean;
+    NoDataSeries:  Boolean;
+
     procedure SetActionButtons;
-    procedure InitDataSeriesProps;
+    procedure InitSeriesSelectPage;
     procedure SetDataSeriesProps(I: Integer);
+    function  GetSelectedObjectDataSeries: TDataSeries;
     function  GetDataSeriesProps(I: Integer): Boolean;
-    function  GetDataSeriesStr(aSeries: TDataSeries): String;
+    function  GetDataSeriesTitle: string;
 
   public
     procedure Init(DataSeries: array of TDataSeries; PlotTimeOfDay: Boolean);
-    function  GetSelectedObjectDataSeries: TDataSeries;
     procedure SetSelectedObjectProps;
 
   end;
@@ -87,7 +91,8 @@ implementation
 {$R *.lfm}
 
 uses
-  main, config, project, mapthemes, utils;
+  main, config, project, mapthemes, utils, reportframe, sysresults,
+  resourcestrings;
 
 const
   Adding = 1;
@@ -103,32 +108,36 @@ procedure TTseriesSelectorFrame.Init(DataSeries: array of TDataSeries;
   PlotTimeOfDay: Boolean);
 var
   I: Integer;
-  S: String;
 begin
   // Clear the SeriesListBox
-  TopPanel.Color := config.ThemeColor;
-  HasChanged := False;
+  Color := config.CreamTheme;
+  config.SetHeaderColor(TopPanel);
+  HasChanged := false;
   SeriesListBox.Clear;
   SeriesListBox.ItemIndex := -1;
+  NoDataSeries := false;
 
-  // Initialize SeriesSelectPage
-  InitDataSeriesProps;
+  // Initialize the components on the SeriesSelectPage
+  InitSeriesSelectPage;
 
-  // Make local copy of the Time Series Report's data series
+  // Make a local copy of the Time Series Report's current data series
   for I := 0 to High(DataSeries) do
     TempDataSeries[I] := DataSeries[I];
 
-  // Add results for currently selected object if TempDataSeries empty
+  // If report currently has no data series then add one for the
+  // project's currently selected object and theme
   if TempDataSeries[0].ObjType < 0 then
+  begin
+    NoDataSeries := true;
     TempDataSeries[0] := GetSelectedObjectDataSeries;
-  if TempDataSeries[0].ObjType >= 0 then HasChanged := True;
+  end;
+  if TempDataSeries[0].ObjType >= 0 then HasChanged := true;
 
-  // Add each data series short description to SeriesListBox
+  // Add description of each data series to the SeriesListPage's SeriesListBox
   for I := 0 to High(TempDataSeries) do
   begin
     if TempDataSeries[I].ObjType < 0 then break;
-    S := GetDataSeriesStr(TempDataSeries[I]);
-    SeriesListBox.Items.Add(S);
+    SeriesListBox.Items.Add(TempDataSeries[I].Title);
   end;
   if SeriesListBox.Count > 0 then SeriesListBox.ItemIndex := 0;
 
@@ -140,32 +149,45 @@ begin
   TimeOfDayBox.Checked := PlotTimeOfDay;
 end;
 
-procedure TTseriesSelectorFrame.InitDataSeriesProps;
+procedure TTseriesSelectorFrame.InitSeriesSelectPage;
 begin
   ObjectTypeCombo.ItemIndex := 0;
   ObjectNameEdit.Text := '';
   LegendLabelEdit.Text := '';
   ObjectTypeComboChange(Self);
-  AxisLeftBtn.Checked := True;
+  AxisLeftBtn.Checked := true;
 end;
 
 procedure TTseriesSelectorFrame.ObjectTypeComboChange(Sender: TObject);
 var
   I: Integer;
 begin
+  ObjectNameEdit.Clear;
   ParamCombo.Clear;
-  case ObjectTypeCombo.Itemindex of
-  0: begin
-       for I := FirstNodeResultTheme to NodeThemeCount - 1 do
-         ParamCombo.Items.Add(MapThemes.NodeThemes[I].Name);
-       ParamCombo.ItemIndex := ntPressure - FirstNodeResultTheme;
-     end;
-  1: begin
-       for I := FirstLinkResultTheme to LinkThemeCount - 1 do
-         ParamCombo.Items.Add(MapThemes.LinkThemes[I].Name);
-       ParamCombo.ItemIndex := ltFlow - FirstLinkResultTheme;
-     end;
+  case ObjectTypeCombo.ItemIndex of
+    0:
+      begin
+        ObjectNameEdit.Enabled := true;
+        for I := FirstNodeResultTheme to NodeThemeCount - 1 do
+          ParamCombo.Items.Add(mapthemes.NodeThemes[I].Name);
+        ParamCombo.ItemIndex := ntPressure - FirstNodeResultTheme;
+      end;
+    1:
+      begin
+        ObjectNameEdit.Enabled := true;
+        for I := FirstLinkResultTheme to LinkThemeCount - 1 do
+          ParamCombo.Items.Add(mapthemes.LinkThemes[I].Name);
+        ParamCombo.ItemIndex := ltFlow - FirstLinkResultTheme;
+      end;
+     2:
+       begin
+         ObjectNameEdit.Enabled := false;
+         for I := 0 to High(SysParams) do
+           ParamCombo.Items.Add(SysParams[I]);
+         ParamCombo.ItemIndex := 0;
+       end;
   end;
+  LegendLabelEdit.Text := GetDataSeriesTitle;
 end;
 
 procedure TTseriesSelectorFrame.AddBtnClick(Sender: TObject);
@@ -177,10 +199,11 @@ end;
 
 procedure TTseriesSelectorFrame.CancelBtn1Click(Sender: TObject);
 begin
-  HasChanged := False;
-  Visible := False;
-  with MainForm.ReportFrame.Report as TTimeSeriesFrame do
-    SetDataSeries(TempDataSeries, TimeOfDayPlot, HasChanged);
+  Visible := false;
+  if NoDataSeries then
+    MainForm.ReportFrame.CloseReport
+  else
+    MainForm.ShowPage(MainForm.ReportPage);
 end;
 
 procedure TTseriesSelectorFrame.CancelBtn2Click(Sender: TObject);
@@ -193,37 +216,46 @@ begin
   CancelBtn1Click(Sender);
 end;
 
+procedure TTseriesSelectorFrame.ObjectNameEditChange(Sender: TObject);
+begin
+  LegendLabelEdit.Text := GetDataSeriesTitle;
+end;
+
 procedure TTseriesSelectorFrame.DeleteBtnClick(Sender: TObject);
 var
-  I, J: Integer;
+  I: Integer;
+  J: Integer;
 begin
   I := SeriesListBox.ItemIndex;
   if I >= 0 then
   begin
-    SeriesListBox.DeleteSelected;
-    for J := I+1 to MaxSeries-1 do
-      TempDataSeries[J-1] := TempDataSeries[J];
+    for J := I + 1 to MaxSeries-1 do
+      TempDataSeries[J - 1] := TempDataSeries[J];
     TempDataSeries[MaxSeries-1].ObjType:= -1;
+    SeriesListBox.DeleteSelected;
   end;
   SetActionButtons;
 end;
 
 procedure TTseriesSelectorFrame.DnBtnClick(Sender: TObject);
 var
-  I, Max: Integer;
+  I: Integer;
+  Max: Integer;
   TmpSeries: TDataSeries;
 begin
   Max := SeriesListBox.Items.Count;
-  if Max > 0 then begin
+  if Max > 0 then
+  begin
     Dec(Max);
     I := SeriesListBox.ItemIndex;
-    if I < Max then begin
+    if I < Max then
+    begin
       SeriesListBox.Items.Exchange(I, I + 1);
-      SeriesListBox.Selected[I+1]:= True;
+      SeriesListBox.Selected[I + 1]:= true;
       TmpSeries := TempDataSeries[I];
-      TempDataSeries[I] := TempDataSeries[I+1];
-      TempDataSeries[I+1] := TmpSeries;
-      HasChanged := True;
+      TempDataSeries[I] := TempDataSeries[I + 1];
+      TempDataSeries[I + 1] := TmpSeries;
+      HasChanged := true;
     end;
   end;
 end;
@@ -232,7 +264,7 @@ procedure TTseriesSelectorFrame.AcceptBtnClick(Sender: TObject);
 begin
   if GetDataSeriesProps(SeriesListBox.ItemIndex) then
   begin
-    HasChanged := True;
+    HasChanged := true;
     Notebook1.PageIndex := 0;
     SetActionButtons;
   end;
@@ -245,12 +277,21 @@ begin
   Notebook1.PageIndex := 1;
 end;
 
+procedure TTseriesSelectorFrame.ParamComboChange(Sender: TObject);
+begin
+    LegendLabelEdit.Text := GetDataSeriesTitle;
+end;
+
 procedure TTseriesSelectorFrame.ViewBtnClick(Sender: TObject);
 begin
-  Visible := False;
-  if TimeOfDayBox.Checked <> TimeOfDayPlot then HasChanged := True;
+  Visible := false;
+  if TimeOfDayBox.Checked <> TimeOfDayPlot then HasChanged := true;
   with MainForm.ReportFrame.Report as TTimeSeriesFrame do
+  begin
     SetDataSeries(TempDataSeries, TimeOfDayBox.Checked, HasChanged);
+  end;
+  MainForm.ReportFrame.Show;
+  MainForm.ShowPage(MainForm.ReportPage);
 end;
 
 procedure TTseriesSelectorFrame.UpBtnClick(Sender: TObject);
@@ -259,13 +300,14 @@ var
   TmpSeries: TDataSeries;
 begin
   I := SeriesListBox.ItemIndex;
-  if I > 0 then begin
+  if I > 0 then
+  begin
     SeriesListBox.Items.Exchange(I, I - 1);
-    SeriesListBox.Selected[I-1]:= True;
+    SeriesListBox.Selected[I - 1]:= true;
     TmpSeries := TempDataSeries[I];
-    TempDataSeries[I] := TempDataSeries[I-1];
-    TempDataSeries[I-1] := TmpSeries;
-    HasChanged := True;
+    TempDataSeries[I] := TempDataSeries[I - 1];
+    TempDataSeries[I - 1] := TmpSeries;
+    HasChanged := true;
   end;
 end;
 
@@ -276,6 +318,9 @@ function TTseriesSelectorFrame.GetSelectedObjectDataSeries: TDataSeries;
 var
   Index: Integer;
   Param: Integer;
+  ObjStr: string;
+  ObjName: string;
+  ParamStr: string;
 begin
   // Default result is an empty data series
   Result.ObjType := -1;
@@ -283,25 +328,27 @@ begin
   begin
 
     // The project's currently selected object is a node
-    if CurrentCategory = cNodes then
+    if CurrentCategory = ctNodes then
     begin
-      Result.ObjType := cNodes;
-      Index := SelectedItem[cNodes] + 1; //Indexes are 1-based
+      Result.ObjType := ctNodes;
+      Index := SelectedItem[ctNodes] + 1; //Indexes are 1-based
       Result.ObjIndex := Index;
       Param := mapthemes.NodeTheme;
       if Param < FirstNodeResultTheme then Param := ntPressure;
       Result.ObjParam := Param;
+      ParamStr := mapthemes.NodeThemes[Param].Name;
     end
 
     // The project's currently selected object is a link
-    else if CurrentCategory = cLinks then
+    else if CurrentCategory = ctLinks then
     begin
-      Result.ObjType := cLinks;
-      Index := SelectedItem[cLinks] + 1; //Indexes are 1-based
+      Result.ObjType := ctLinks;
+      Index := SelectedItem[ctLinks] + 1; //Indexes are 1-based
       Result.ObjIndex := Index;
       Param := mapthemes.LinkTheme;
       if Param < FirstLinkResultTheme then Param := ltFlow;
       Result.ObjParam := Param;
+      ParamStr := mapthemes.LinkThemes[Param].Name;
     end
 
     // Currently selected object is neither a node nor a link
@@ -310,7 +357,11 @@ begin
 
   // Default plot y-axis & legend title
   Result.PlotAxis := 0;
-  Result.Title:= '';   //GetDataSeriesStr(Result);
+  ObjStr := project.GetItemTypeStr(Result.ObjType, Index - 1);
+  ObjName := project.GetID(Result.ObjType, Index);
+  Result.ObjID := ObjName;
+  Result.Title := ObjStr + ObjName + ' ' + ParamStr;
+  Result.Legend := Result.Title;
 end;
 
 function TTseriesSelectorFrame.GetDataSeriesProps(I: Integer): Boolean;
@@ -318,37 +369,46 @@ function TTseriesSelectorFrame.GetDataSeriesProps(I: Integer): Boolean;
 //  Transfer the entries on the SeriesSelectPage into a Data Series object.
 //
 var
-  ObjID, ItemString: String;
   aSeries: TDataSeries;
 begin
-  Result := True;
+  Result := true;
   with aSeries do
   begin
     ObjParam := ParamCombo.ItemIndex;
-    if ObjectTypeCombo.ItemIndex = 0 then
-    begin
-      ObjType := cNodes;
-      ObjParam := MapThemes.FirstNodeResultTheme + ObjParam;
-    end else
-    begin
-      ObjType := cLinks;
-      ObjParam := MapThemes.FirstLinkResultTheme + ObjParam;
+    case ObjectTypeCombo.ItemIndex of
+    0:  // Node object
+      begin
+        ObjType := ctNodes;
+        ObjParam := mapthemes.FirstNodeResultTheme + ObjParam;
+      end;
+    1:  // Link object
+      begin
+        ObjType := ctLinks;
+        ObjParam := mapthemes.FirstLinkResultTheme + ObjParam;
+      end;
+    2:  // System object
+      begin
+        ObjType := ctSystem;
+      end;
     end;
-    ObjID := ObjectNameEdit.Text;
-    ObjIndex := Project.GetItemIndex(ObjType, ObjID);
-    if ObjIndex = 0 then
+
+    ObjIndex := 0;
+    if (ObjType = ctNodes)
+    or (ObjType = ctLinks) then
     begin
-      utils.MsgDlg('There is no such object in the project.', mtError, [mbOK]);
-      Result := False;
-      exit;
+      ObjID := ObjectNameEdit.Text;
+      ObjIndex := project.GetItemIndex(ObjType, ObjID);
+      if ObjIndex = 0 then
+      begin
+        utils.MsgDlg(rsMissingData, rsNoSuchObject, mtError, [mbOK]);
+        Result := false;
+        exit;
+      end;
     end;
   end;
 
-  ItemString := GetDataSeriesStr(aSeries);
-  if Length(LegendLabelEdit.Text) = 0 then
-    aSeries.Title := ItemString
-  else
-    aSeries.Title:= LegendLabelEdit.Text;
+  aSeries.Title := GetDataSeriesTitle;
+  aSeries.Legend := LegendLabelEdit.Text;
   if AxisLeftBtn.Checked then
     aSeries.PlotAxis:= 0
   else
@@ -356,11 +416,12 @@ begin
 
   if SeriesAction = Editing then
   begin
-    SeriesListBox.Items[I] := ItemString;
+    SeriesListBox.Items[I] := aSeries.Title;
     SeriesListBox.ItemIndex := I;
-  end else
+  end
+  else
   begin
-    SeriesListBox.Items.Add(ItemString);
+    SeriesListBox.Items.Add(aSeries.Title);
     SeriesListBox.ItemIndex := SeriesListBox.Count - 1;
     I := SeriesListBox.ItemIndex;
   end;
@@ -369,7 +430,8 @@ end;
 
 procedure TTseriesSelectorFrame.SetDataSeriesProps(I: Integer);
 var
-  ObjType, ObjIndex, ObjParam: Integer;
+  ObjType: Integer;
+  ObjParam: Integer;
 begin
   if I < 0 then
   begin
@@ -379,78 +441,87 @@ begin
   end;
 
   ObjType := TempDataSeries[I].ObjType;
-  if ObjType = cNodes then ObjectTypeCombo.ItemIndex := 0;
-  if ObjType = cLinks then ObjectTypeCombo.ItemIndex := 1;
-
-  ObjIndex := TempDataSeries[I].ObjIndex;
-  ObjectNameEdit.Text := Project.GetID(ObjType, ObjIndex);
-  LegendLabelEdit.Text := TempDataSeries[I].Title;
-
-  ObjectTypeComboChange(Self);
   ObjParam := TempDataSeries[I].ObjParam;
-  if ObjType = cNodes then
-    ParamCombo.ItemIndex := ObjParam - MapThemes.FirstNodeResultTheme;
-  if ObjType = cLinks then
-    ParamCombo.ItemIndex := ObjParam - MapThemes.FirstLinkResultTheme;
+  if ObjType = ctNodes then
+    ObjectTypeCombo.ItemIndex := 0
+  else if ObjType = ctLinks then
+    ObjectTypeCombo.ItemIndex := 1
+  else if ObjType = ctSystem then
+    ObjectTypeCombo.ItemIndex := 2;
+  ObjectTypeComboChange(Self);
+  if ObjType = ctNodes then
+    ParamCombo.ItemIndex := ObjParam - mapthemes.FirstNodeResultTheme
+  else if ObjType = ctLinks then
+    ParamCombo.ItemIndex := ObjParam - mapthemes.FirstLinkResultTheme
+  else
+    ParamCombo.ItemIndex := ObjParam;
+  ObjectNameEdit.Text := TempDataSeries[I].ObjID;
+  LegendLabelEdit.Text := TempDataSeries[I].Legend;
 
   if TempDataSeries[I].PlotAxis = 0 then
-    AxisLeftBtn.Checked := True
+    AxisLeftBtn.Checked := true
   else
-    AxisRightBtn.Checked := True;
+    AxisRightBtn.Checked := true;
 end;
 
 procedure TTseriesSelectorFrame.SetSelectedObjectProps;
 var
-  ObjType, Index: Integer;
+  Index: Integer;
 begin
   if Notebook1.PageIndex <> 1 then exit;
   with MainForm.ProjectFrame do
   begin
-    if CurrentCategory = cNodes then
+
+    if CurrentCategory = ctNodes then
     begin
-      ObjType := cNodes;
-      Index := SelectedItem[cNodes] + 1; //Indexes are 1-based
-      ObjectNameEdit.Text := project.GetID(cNodes, Index);
+      Index := SelectedItem[ctNodes] + 1; //Indexes are 1-based
+      ObjectNameEdit.Text := project.GetID(ctNodes, Index);
       if ObjectTypeCombo.ItemIndex <> 0 then
       begin
         ObjectTypeCombo.ItemIndex := 0;
         ObjectTypeComboChange(self);
       end;
     end
-    else if CurrentCategory = cLinks then
+
+    else if CurrentCategory = ctLinks then
     begin
-      ObjType := cLinks;
-      Index := SelectedItem[cLinks] + 1; //Indexes are 1-based
-      ObjectNameEdit.Text := project.GetID(cLinks, Index);
+      Index := SelectedItem[ctLinks] + 1; //Indexes are 1-based
+      ObjectNameEdit.Text := project.GetID(ctLinks, Index);
       if ObjectTypeCombo.ItemIndex <> 1 then
       begin
         ObjectTypeCombo.ItemIndex := 1;
         ObjectTypeComboChange(self);
       end;
     end
+
     else exit;
   end;
 end;
 
-function TTseriesSelectorFrame.GetDataSeriesStr(aSeries:TDataSeries): String;
-//
-//  Builds a descriptive string of a given data series
-//  (e.g., Junction J29 Pressure)
-//
+function TTseriesSelectorFrame.GetDataSeriesTitle: string;
+var
+  ObjType: Integer;
+  ObjIndex: Integer;
+  ObjStr: string;
 begin
+  // A system parameter was selected
   Result := '';
-  with aSeries do
+  if ObjectTypeCombo.ItemIndex = 2 then
   begin
-    // Check for valid object type
-    if ObjType < 0 then exit;
-
-    // Use functions from the TimeSeriesFrame report to build data series string
-    with MainForm.ReportFrame.Report as TTimeSeriesFrame do
-    begin
-      Result := GetObjStr(ObjType, ObjIndex-1);
-      Result := Result + ' ' + GetParamStr(ObjType, ObjParam);
-    end;
+    Result := rsSystem + ' ' + sysresults.SysParams[ParamCombo.ItemIndex];
+    exit;
   end;
+
+  // A node or link parameter was selected
+  if Length(Trim(ObjectNameEdit.Text)) = 0 then exit;
+  if ObjectTypeCombo.ItemIndex = 0 then
+    ObjType := ctNodes
+  else
+    ObjType := ctLinks;
+  ObjIndex := project.GetItemIndex(ObjType, ObjectNameEdit.Text);
+  if ObjIndex <= 0 then exit;
+  ObjStr := project.GetItemTypeStr(ObjType, ObjIndex-1);
+  Result := ObjStr + ObjectNameEdit.Text + ' ' + ParamCombo.Text;
 end;
 
 procedure TTseriesSelectorFrame.SetActionButtons;

@@ -1,12 +1,10 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
- Module:       mapcoords
- Description:  utility functions for map coordinates
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
+ Project:      EPANET-UI
+ Version:      1.0.3
+ Module:       projtransform
+ Description:  transforms one map projection to another
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 {
@@ -21,16 +19,16 @@
   Typical usage to transform coordinates X and Y from a
   coordinate system with EPSG code SrcEPSG to one with code DstEPSG:
 
-  function Transform(SrcEPSG, DstEPSG: String; var X, Y: Double): Boolean;
+  function Transform(SrcEPSG, DstEPSG: string; var X, Y: Double): Boolean;
   var
     ProjTrans: TProjTransform;
   begin
-    Result := False;
+    Result := false;
     ProjTrans := TProjTransform.Create;
     try
       if not ProjTrans.SetProjections(SrcEPSG, DstEPSG) then exit;
       ProjTrans.Transform(X, Y);
-      Result := True;
+      Result := true;
     finally
       ProjTrans.Free;
     end;
@@ -44,18 +42,20 @@ unit projtransform;
 interface
 
 uses
-  Classes, SysUtils, restclient, proj;
+  Classes, SysUtils, LCLtype, Dialogs, utils, proj;
 
 type
   TProjTransform = class(TObject)
     private
-      SrcProj, DstProj: proj.ProjHandle;
-      IsSrcLatLong, IsDstLatLong: Integer;
-      function GetProjHandle(EPSGcode: String): proj.ProjHandle;
+      SrcProj,
+      DstProj: proj.ProjHandle;
+      IsSrcLatLong,
+      IsDstLatLong: Integer;
+      function GetProjHandle(EPSGcode: string): proj.ProjHandle;
     public
       constructor Create;
       destructor Destroy; override;
-      function SetProjections(SrcEPSG, DstEPSG: String): Boolean;
+      function SetProjections(SrcEPSG, DstEPSG: string): Boolean;
       function Transform(var X, Y: Double): Boolean;
   end;
 implementation
@@ -76,27 +76,28 @@ begin
   inherited Destroy;
 end;
 
-function TProjTransform.GetProjHandle(EPSGcode: String): proj.ProjHandle;
+function TProjTransform.GetProjHandle(EPSGcode: string): proj.ProjHandle;
 var
-  Url: String;
-  ProjStr: String;
+  Url: string;
+  ProjStr: string;
+  EpsgErr: string;
 begin
   // Obtain the projection's string from its EPSG code
+  Result := 0;
   ProjStr := '';
   Url := 'https://epsg.io/' + EPSGcode + '.proj4';
   try
-    restclient.GetString(Url, ProjStr);
-    Result := proj.pj_init_plus(PAnsiChar(ProjStr));
+    if utils.HttpRequest(Url, ProjStr) then
+      Result := proj.pj_init_plus(PAnsiChar(ProjStr));
   except
-    On E: Exception do
-      Result := 0;
+    Result := 0;
   end;
 end;
 
-function TProjTransform.SetProjections(SrcEPSG, DstEPSG: String): Boolean;
+function TProjTransform.SetProjections(SrcEPSG, DstEPSG: string): Boolean;
 begin
   // Free current source & destination projection handles
-  Result := False;
+  Result := false;
   if SrcProj <> 0 then proj.pj_free(SrcProj);
   if DstProj <> 0 then proj.pj_free(DstProj);
 
@@ -104,34 +105,45 @@ begin
   SrcProj := GetProjHandle(SrcEPSG);
   if SrcProj <> 0 then
     IsSrcLatLong := proj.pj_is_latlong(SrcProj)
-  else exit;
+  else
+    exit;
 
   // Create handle for destination projection
   DstProj := GetProjHandle(DstEPSG);
   if DstProj <> 0 then
     IsDstLatLong := proj.pj_is_latlong(DstProj)
-  else exit;
-  Result := True;
+  else
+    exit;
+
+  Result := true;
 end;
 
 function TProjTransform.Transform(var X, Y: Double): Boolean;
 var
-  Z: Double = 0;
+  ZZ: Double = 0;
+  XX: Double;
+  YY: Double;
 begin
-  Result := False;
-  if (SrcProj = 0) or (DstProj = 0) then exit;
+  Result := false;
+  if (SrcProj = 0)
+  or (DstProj = 0) then
+    exit;
+  XX := X;
+  YY := Y;
   if IsSrcLatLong = 1 then
   begin
-    X := X * DEG_TO_RAD;
-    Y := Y * DEG_TO_RAD;
+    XX := XX * DEG_TO_RAD;
+    YY := YY * DEG_TO_RAD;
   end;
-  if proj.pj_transform(SrcProj, DstProj, 1, 1, X, Y, Z) <> 0 then exit;
+  if proj.pj_transform(SrcProj, DstProj, 1, 1, XX, YY, ZZ) <> 0 then exit;
   if IsDstLatLong = 1 then
   begin
-    X := X * RAD_TO_DEG;
-    Y := Y * RAD_TO_DEG;
+    XX := XX * RAD_TO_DEG;
+    YY := YY * RAD_TO_DEG;
   end;
-  Result := True;
+  X := XX;
+  Y := YY;
+  Result := true;
 end;
 
 end.

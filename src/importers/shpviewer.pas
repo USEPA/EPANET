@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       shpviewer
  Description:  displays a shapefile's attribute table and its prj
                file and draws its image to a bitmap
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 03/07/2026
 =====================================================================}
 
 unit shpviewer;
@@ -18,18 +16,19 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Grids, Types,
-  LCLtype, ExtCtrls, StdCtrls, Math,  shpapi;
+  LCLtype, ExtCtrls, StdCtrls, Math, shpapi;
 
 type
 
   { TShpViewerForm }
 
   TShpViewerForm = class(TForm)
-    AttributePage: TPage;
-    DrawGrid1: TDrawGrid;
-    Memo1: TMemo;
-    Notebook1: TNotebook;
+    AttributePage:  TPage;
+    DrawGrid1:      TDrawGrid;
+    Memo1:          TMemo;
+    Notebook1:      TNotebook;
     ProjectionPage: TPage;
+
     procedure DrawGrid1DrawCell(Sender: TObject; aCol, aRow: Integer;
       aRect: TRect; aState: TGridDrawState);
     procedure DrawGrid1KeyDown(Sender: TObject; var Key: Word;
@@ -37,21 +36,25 @@ type
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+
   private
-    Dbf: DBFHandle;
-    FieldName: array of String;
+    Dbf:           DBFHandle;
+    FieldName:     array of string;
     FieldDecimals: array of Integer;
-    FieldType: array of DBFFieldType;
-    function GetTableCellValue(C, R: Integer): String;
+    FieldType:     array of DBFFieldType;
+
+    function GetTableCellValue(C, R: Integer): string;
+
   public
-    function  ViewDbfFile(Filename: String): Boolean;
-    procedure ViewPrjFile(Filename: String);
+    function  ViewDbfFile(Filename: string): Boolean;
+    procedure ViewPrjFile(Filename: string);
+
   end;
 
 var
   ShpViewerForm: TShpViewerForm;
 
-  function  ViewShpFile(LinkFile, NodeFile: String; var Bitmap: TBitmap): Boolean;
+  function  ViewShpFile(LinkFile, NodeFile: string; var Bitmap: TBitmap): Boolean;
 
   procedure ScaleNetwork(LinkShp: SHPHandle; NodeShp: SHPHandle;
             Bitmap: TBitmap; var LinkCount: Integer; var NodeCount: Integer);
@@ -67,7 +70,7 @@ implementation
 {$R *.lfm}
 
 uses
-  config, utils;
+  config, utils, resourcestrings;
 
 { TShpViewerForm }
 
@@ -79,7 +82,9 @@ var
 
 procedure TShpViewerForm.FormCreate(Sender: TObject);
 begin
-  Color := Config.ThemeColor;
+  Color := config.ThemeColor;
+  Font.Size := config.FontSize;
+  Memo1.Font.Size := config.FontSize;
   Dbf := nil;
 end;
 
@@ -92,7 +97,7 @@ end;
 procedure TShpViewerForm.DrawGrid1DrawCell(Sender: TObject; aCol,
   aRow: Integer; aRect: TRect; aState: TGridDrawState);
 var
-  S: String;
+  S: string;
 begin
   S := GetTableCellValue(aCol, aRow);
   with Sender as TDrawGrid do
@@ -113,21 +118,22 @@ begin
   if Key = VK_ESCAPE then Close;
 end;
 
-function TShpViewerForm.ViewDbfFile(Filename: String): Boolean;
+function TShpViewerForm.ViewDbfFile(Filename: string): Boolean;
 var
-  I, N: Integer;
-  Fwidth, Fdecimals: Integer;
-  Fname: array[0..XBASE_FLDNAME_LEN_READ] of Char;
+  I, N:      Integer;
+  Fwidth:    Integer = 0;
+  Fdecimals: Integer = 0;
+  Fname:     array[0..XBASE_FLDNAME_LEN_READ] of Char = '';
 begin
-  Caption := 'Shape File Attribute Table';
+  Caption := rsShapeAttrib;
   Notebook1.PageIndex := 0;
   Filename := ChangeFileExt(Filename, '.dbf');
   Dbf := shpapi.DBFOpen(PAnsiChar(Filename), 'rb');
 
   if Dbf = nil then
   begin
-    utils.MsgDlg('Could not open shapefile attribute file.', mtInformation, [mbOK]);
-    Result := False;
+    utils.MsgDlg(rsFileError, rsNoShapeAttrib, mtInformation, [mbOK], self);
+    Result := false;
     exit;
   end;
 
@@ -145,25 +151,24 @@ begin
     FieldName[I] := Fname;
     FieldDecimals[I] := Fdecimals;
   end;
-  Result := True;
+  Result := true;
 end;
 
-procedure TShpViewerForm.ViewPrjFile(Filename: String);
+procedure TShpViewerForm.ViewPrjFile(Filename: string);
 begin
-  Caption := 'Projection Parameters';
+  Caption := rsProjParams;
   Notebook1.PageIndex := 1;
   Memo1.Lines.LoadFromFile(Filename);
   Memo1.SelStart := 0;
 end;
 
-function TShpViewerForm.GetTableCellValue(C, R: Integer): String;
+function TShpViewerForm.GetTableCellValue(C, R: Integer): string;
 var
-  X: Double;
-  Fmt: String;
+  X:   Double;
+  Fmt: string;
 begin
   Result := '';
   if Dbf = nil then exit;
-
   if R = 0 then
   begin
     Result := FieldName[C];
@@ -173,8 +178,10 @@ begin
   R := R - 1;
   if FieldType[C] = FTString then
     Result := shpapi.DBFReadStringAttribute(Dbf, R, C)
+
   else if FieldType[C] = FTInteger then
     Result := IntToStr(shpapi.DBFReadIntegerAttribute(Dbf, R, C))
+
   else if FieldType[C] = FTDouble then
   begin
     X := shpapi.DBFReadDoubleAttribute(Dbf, R, C);
@@ -183,19 +190,19 @@ begin
   end;
 end;
 
-function ViewShpFile(LinkFile, NodeFile: String;
-  var Bitmap: TBitmap): Boolean;
-// Draw the pipe network contained in link and node shapefiles
-// onto a bitmap.
-
+function ViewShpFile(LinkFile, NodeFile: string; var Bitmap: TBitmap): Boolean;
 var
-  LinkShp: shpapi.SHPHandle;
-  NodeShp: shpapi.SHPHandle;
-  LinkCount, NodeCount, I: Integer;
+  LinkShp:    shpapi.SHPHandle;
+  NodeShp:    shpapi.SHPHandle;
+  LinkCount:  Integer;
+  NodeCount:  Integer;
+  I:          Integer;
 begin
-  Result := False;
+  Result := false;
   if Bitmap = nil then exit;
-  if (Bitmap.Width = 0) or (Bitmap.Height = 0) then exit;
+  if (Bitmap.Width = 0)
+  or (Bitmap.Height = 0) then
+    exit;
 
   // Clear bitmap canvas
   with Bitmap.Canvas do
@@ -212,7 +219,9 @@ begin
   try
     LinkShp := shpapi.SHPOpen(PAnsiChar(LinkFile), 'rb');
     NodeShp := shpapi.SHPOpen(PAnsiChar(NodeFile), 'rb');
-    if (LinkShp = nil) and (NodeShp = nil) then exit;
+    if (LinkShp = nil)
+    and (NodeShp = nil) then
+      exit;
 
     // Scale network within boundaries of link coordinates
     ScaleNetwork(LinkShp, NodeShp, Bitmap, LinkCount, NodeCount);
@@ -225,14 +234,16 @@ begin
       Brush.Color := $00BE9270;
     end;
     if LinkShp <> nil then
-      for I := 0 to LinkCount-1 do DrawLink(LinkShp, I, Bitmap);
+      for I := 0 to LinkCount-1 do
+        DrawLink(LinkShp, I, Bitmap);
 
     // Draw each node on Bitmap
     Bitmap.Canvas.Pen.Color := clBlack;
     Bitmap.Canvas.Pen.Width := 1;
     if NodeShp <> nil then
-      for I := 0 to NodeCount-1 do DrawNode(NodeShp, I, Bitmap);
-    Result := True;
+      for I := 0 to NodeCount-1 do
+        DrawNode(NodeShp, I, Bitmap);
+    Result := true;
 
   finally
     shpapi.SHPClose(LinkShp);
@@ -243,11 +254,13 @@ end;
 procedure ScaleNetwork(LinkShp: SHPHandle; NodeShp: SHPHandle;
   Bitmap: TBitmap; var LinkCount: Integer; var NodeCount: Integer);
 var
-   ShapeType: Integer;
-   MinBound: array [0..3] of Double;
-   MaxBound: array [0..3] of Double;
-   Xmin, Ymin, Xmax, Ymax: Double;
-   WPPx, WPPy, Dx, Dy: Double;
+   ShapeType:   Integer = 0;
+   MinBound:    array [0..3] of Double = (0,0,0,0);
+   MaxBound:    array [0..3] of Double = (0,0,0,0);
+   Xmin, Ymin:  Double;
+   Xmax, Ymax:  Double;
+   WPPx, WPPy:  Double;
+   Dx, Dy:      Double;
 begin
   LinkCount := 0;
   NodeCount := 0;
@@ -284,15 +297,18 @@ begin
   WPPy := Dy / Bitmap.Height;
 
   // Maintain a 1:1 aspect ratio
-  if WPPy > WPPx then WPP := WPPy
-  else WPP := WPPx;
+  if WPPy > WPPx then
+    WPP := WPPy
+  else
+    WPP := WPPx;
 end;
 
 procedure DrawLink(Shp: SHPHandle; I: Integer; var Bitmap: TBitmap);
 var
    ShpObj: shpapi.PShpObject;
-   N, K: Integer;
-   P: TPoint;
+   N:      Integer;
+   K:      Integer;
+   P:      TPoint;
 begin
   ShpObj := shpapi.SHPReadObject(Shp, I);
   if ShpObj = nil then exit;
@@ -312,7 +328,7 @@ const
   Size: Integer = 4;
 var
    ShpObj: shpapi.PShpObject;
-   P: TPoint;
+   P:      TPoint;
 begin
   ShpObj := shpapi.SHPReadObject(Shp, I);
   if ShpObj = nil then exit;

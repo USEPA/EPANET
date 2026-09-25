@@ -1,13 +1,11 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       mapthemes
  Description:  Manages the display of node and link themes on
                the pipe network map
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 
 unit mapthemes;
@@ -17,7 +15,7 @@ unit mapthemes;
 interface
 
 uses
-  Classes, SysUtils, ComCtrls, Graphics, Dialogs, Controls, Math;
+  Classes, SysUtils, StrUtils, ComCtrls, Graphics, Dialogs, Controls, Math;
 
 const
 
@@ -44,14 +42,25 @@ const
   FirstLinkResultTheme = 4;
   FirstLinkQualTheme = 8;
 
-  MISSING = -1.E10;   //Missing value
-  MAXLEVELS = 4;      //Number of color-coded levels
+  // Additional link themes
+  ltEnergy  = 99;
+  ltStatus  = 98;
+  ltSetting = 97;
+
+  MISSING = -1.E10;   // Missing value
+  MAXLEVELS = 4;      // Number of color-coded theme levels
+
+  DefLegendColors: array[0..MAXLEVELS] of TColor =  //order is BB GG RR
+    ($00BE9270, $00EAD999, $001DE6B5, $000EC9FF, $00277FFF);
+
+//  Viridis Scale
+//  ($00540144, $008b513b, $008d9021, $0063c85c, $0025e7fd); //
 
 type
   TMapTheme = record
-    Name        : string;                 //Theme name
-    SourceIndex : Integer;                //Index used by data source
-    DefIntervals: array[1..MAXLEVELS] of string;  //Default display intervals
+    Name:         string;                 // Theme name
+    SourceIndex:  Integer;                // Index used by data source
+    DefIntervals: array[1..MAXLEVELS] of string;  // Default display intervals
 end;
 
   TLegendIntervals = record
@@ -59,198 +68,205 @@ end;
     Values: array[1..MAXLEVELS] of Single;
   end;
 
+var
+  LinkColors:       array[0..MAXLEVELS] of TColor;
+  LinkIntervals:    array of TLegendIntervals;
+  LinkTheme:        Integer;
+  LinkThemes:       array of TMapTheme;
+  LinkThemeCount:   Integer;
+  NodeColors:       array[0..MAXLEVELS] of TColor;
+  NodeIntervals:    array of TLegendIntervals;
+  NodeTheme:        Integer;
+  NodeThemes:       array of TMapTheme;
+  NodeThemeCount:   Integer;
+  QualThemeCount:   Integer;
+  QualThemeUnits:   string;
+  TimePeriod:       Integer;
+
+procedure ChangeTimePeriod(NewTimePeriod: Integer);
+procedure ChangeTheme(ThemeType: Integer; NewTheme: Integer);
+
+function  EditNodeLegend: Boolean;
+function  EditLinkLegend: Boolean;
+
+function  GetCurrentThemeValue(ObjType: Integer; ObjIndex: Integer): Single;
+function  GetFlowDir(LinkIndex: Integer): Integer;
+function  GetLinkColor(LinkIndex: Integer; var ColorIndex: Integer): TColor;
+function  GetLinkValue(LinkIndex, aTheme, aTimePeriod: Integer): Single;
+function  GetMinMaxValues(ObjType: Integer; var Vmin: Double; var Vmax: Double): Boolean;
+function  GetNodeColor(NodeIndex: Integer; var ColorIndex: Integer): TColor;
+function  GetNodeValue(NodeIndex: Integer; aTheme: Integer;  aTimePeriod: Integer): Single;
+function  GetStatusStr(Status: Integer): String;
+function  GetThemeUnits(ThemeType: Integer; aTheme: Integer): string;
+
+procedure InitColors;
+procedure InitThemes;
+
+procedure ResetThemes;
+procedure SetInitialTheme(ThemeType: Integer; aTheme: Integer);
+procedure UpdateLegend(ThemeType: Integer; ThemeIndex: Integer;
+  ThemeName: string; ThemeUnits: string);
+
+implementation
+
+uses
+  main, project, groupeditor, legendeditor, results, utils, resourcestrings;
+
 const
   BaseNodeThemes: array[0..ntPressure] of TMapTheme =
   (
-    (Name:'None';
+    (Name:rsNone;
      SourceIndex:-1;
      DefIntervals:('','','','')),
 
-    (Name:'Elevation';
+    (Name:rsElevation;
      SourceIndex:0;    // = EN_ELEVATION
      DefIntervals:('25','50','75','100')),
 
-    (Name:'Base Demand';
+    (Name:rsBaseDemand;
      SourceIndex:1;    // = EN_BASEDEMAND
      DefIntervals:('25','50','75','100')),
 
-    (Name:'Actual Demand';
+    (Name:rsTotalDemand;
      SourceIndex:0;
      DefIntervals:('25','50','75','100')),
 
-     (Name:'Demand Deficit';
+     (Name:rsDemandDeficit;
       SourceIndex:100;
       DefIntervals:('25','50','75','100')),
 
-      (Name:'Emitter Demand';
+      (Name:rsEmitterFlow;
        SourceIndex:100;
        DefIntervals:('5','10','20','50')),
 
-     (Name:'Leakage Demand';
+     (Name:rsLeakage;
       SourceIndex:100;
       DefIntervals:('5','10','20','50')),
 
-    (Name:'Hydraulic Head';
+    (Name:rsHydraulicHead;
      SourceIndex:1;
      DefIntervals:('25','50','75','100')),
 
-    (Name:'Pressure';
+    (Name:rsPressure;
      SourceIndex:2;
      DefIntervals:('25','50','75','100'))
   );
 
   BaseLinkThemes: array[0..7] of TMapTheme =
   (
-    (Name:'None';
+    (Name:rsNone;
      SourceIndex:-1;
      DefIntervals:('','','','')),
 
-    (Name:'Diameter';
+    (Name:rsDiameter;
      SourceIndex:0;    // = EN_DIAMETER
      DefIntervals:('6','12','24','36')),
 
-    (Name:'Length';
+    (Name:rsLength;
      SourceIndex:1;    // = EN_LENGTH
      DefIntervals:('100','500','1000','5000')),
 
-    (Name:'Roughness';
+    (Name:rsRoughness;
      SourceIndex:2;    // = EN_ROUGHNESS
      DefIntervals:('50','75','100','125')),
 
-    (Name:'Flow';
+    (Name:rsFlowRate;
      SourceIndex:0;
      DefIntervals:('25','50','75','100')),
 
-    (Name:'Velocity';
+    (Name:rsVelocity;
      SourceIndex:1;
      DefIntervals:('0.01','0.1','1.0','2.0')),
 
-    (Name:'Unit Head Loss';
+    (Name:rsHeadLoss;
      SourceIndex:2;
      DefIntervals:('0.025','0.05','0.075','0.1')),
 
-    (Name:'Leakage';
+    (Name:rsLeakage;
      SourceIndex:200;
      DefIntervals:('5','10','20','50'))
   );
 
-  DefQualIntervalLabels:  array[1..MAXLEVELS] of String =
+  DefQualIntervalLabels:  array[1..MAXLEVELS] of string =
     ('1', '10', '50', '80');
   DefQualIntervalValues: array[1..MAXLEVELS] of Single =
     (1, 10, 50, 80);
 
-  DefLegendColors: array[0..MAXLEVELS] of TColor =  //order is BB GG RR
-    ($00BE9270, $00EAD999, $001DE6B5, $000EC9FF, $00277FFF);
-//    ($00540144, $008b513b, $008d9021, $0063c85c, $0025e7fd); //Viridis Scale
-
-var
-  LinkColors: array[0..MAXLEVELS] of TColor;
-  LinkIntervals: array of TLegendIntervals;
-  LinkTheme: Integer;
-  LinkThemes: array of TMapTheme;
-  LinkThemeCount: Integer;
-  NodeColors: array[0..MAXLEVELS] of TColor;
-  NodeIntervals: array of TLegendIntervals;
-  NodeTheme: Integer;
-  NodeThemes: array of TMapTheme;
-  NodeThemeCount: Integer;
-  QualThemeCount: Integer;
-  QualThemeUnits: String;
-  TimePeriod: Integer;
-
-procedure ChangeTimePeriod(NewTimePeriod: Integer);
-procedure ChangeTheme(ThemeViewer: TTreeView; ThemeType: Integer; NewTheme: Integer);
-function  EditNodeLegend: Boolean;
-function  EditLinkLegend: Boolean;
-function  GetCurrentThemeValue(ObjType: Integer; ObjIndex: Integer): Single;
-function  GetFlowDir(LinkIndex: Integer): Integer;
-function  GetLinkColor(LinkIndex: Integer; var ColorIndex: Integer): TColor;
-function  GetLinkValue(LinkIndex: Integer; aTheme: Integer;
-          aTimePeriod: Integer): Single;
-function  GetMinMaxValues(ObjType: Integer; var Vmin: Double; var Vmax: Double): Boolean;
-function  GetNodeColor(NodeIndex: Integer; var ColorIndex: Integer): TColor;
-function  GetNodeValue(NodeIndex: Integer; aTheme: Integer;  aTimePeriod: Integer): Single;
-function  GetThemeUnits(ThemeType: Integer; aTheme: Integer): String;
-procedure InitColors;
-procedure InitThemes(ThemeViewer: TTreeView);
-procedure ResetThemes;
-procedure SetBaseMapVisible(IsVisible: Boolean);
-procedure SetInitialTheme(ThemeType: Integer; aTheme: Integer);
-procedure UpdateLegend(StartNode: TTreeNode; ThemeType: Integer);
-
-implementation
-
-uses
-  main, project, themelegend, results, utils;
-
-// Retrieve numerical theme value of currently selected object
 function GetCurrentThemeValue(ObjType: Integer; ObjIndex: Integer): Single;
 begin
-  if ObjType = cNodes then
+  if ObjType = ctNodes then
     Result := GetNodeValue(ObjIndex, NodeTheme, TimePeriod)
-  else if ObjType = cLinks then
+  else if ObjType = ctLinks then
     Result := GetLinkValue(ObjIndex, LinkTheme, TimePeriod)
-  else Result := MISSING;
+  else
+    Result := MISSING;
 end;
 
-// Retrieve numerical theme value of a particular node
 function  GetNodeValue(NodeIndex: Integer; aTheme: Integer;
   aTimePeriod: Integer): Single;
 var
-  ParamIndex, ResultIndex: Integer;
+  ParamIndex:   Integer;
+  ResultIndex:  Integer;
 begin
   if aTheme <= 0 then
     Result := MISSING
-  else begin
+  else
+  begin
+    // Theme is a design parameter
     if aTheme < FirstNodeResultTheme then
     begin
       ParamIndex := NodeThemes[aTheme].SourceIndex;
-      Result := Project.GetNodeParam(NodeIndex, ParamIndex)
+      Result := project.GetNodeParam(NodeIndex, ParamIndex)
     end
 
-    else if not Project.HasResults then
+    // Project has no simulation results
+    else if not project.HasResults then
       Result := MISSING
 
-    else begin
+    // Project has results
+    else
+    begin
+      // Find index of node in results file
       ParamIndex := NodeThemes[aTheme].SourceIndex;
-      ResultIndex := Project.GetResultIndex(cNodes, NodeIndex);
-
+      ResultIndex := project.GetResultIndex(ctNodes, NodeIndex);
       if ResultIndex < 1 then
         Result := MISSING
+      else
+      begin
 
-      else begin
-        if MsxFileOpened and (aTheme >= FirstNodeQualTheme) then
-          Result := Results.GetNodeMsxValue(ResultIndex, ParamIndex, aTimePeriod)
+        // Theme results reside in the MSX (multi-species) output file
+        if MsxFileOpened
+        and (aTheme >= FirstNodeQualTheme) then
+          Result := results.GetNodeMsxValue(ResultIndex, ParamIndex, aTimePeriod)
 
+        // Theme results reside in the secondary output file
         else if (aTheme = ntDmndDfct) then
         begin
-          if DmndFileOpened then
-            Result := Results.GetDmndDfctValue(ResultIndex, aTimePeriod)
+          if OutFile2Opened then
+            Result := results.GetDmndDfctValue(ResultIndex, aTimePeriod)
           else
             Result := MISSING
         end
-
         else if (aTheme = ntEmittance) then
         begin
-          if DmndFileOpened then
-            Result := Results.GetEmitterFlowValue(ResultIndex, aTimePeriod)
+          if OutFile2Opened then
+            Result := results.GetEmitterFlowValue(ResultIndex, aTimePeriod)
           else
             Result := MISSING
         end
-
         else if (aTheme = ntLeakage) then
         begin
-          if DmndFileOpened then
-            Result := Results.GetNodeLeakageValue(ResultIndex, aTimePeriod)
+          if OutFile2Opened then
+            Result := results.GetNodeLeakageValue(ResultIndex, aTimePeriod)
           else
             Result := MISSING
         end
 
+        // Theme results reside in the primary output file
         else if OutFileOpened then
         begin
-          Result := Results.GetNodeValue(ResultIndex, ParamIndex, aTimePeriod);
+          Result := results.GetNodeValue(ResultIndex, ParamIndex, aTimePeriod);
         end
-
         else
           Result := MISSING;
       end;
@@ -258,113 +274,110 @@ begin
   end;
 end;
 
-// Retrieve numerical theme value of a particular link
-function  GetLinkValue(LinkIndex: Integer; aTheme: Integer;
-  aTimePeriod: Integer): Single;
+function GetLinkResultFromFile(ResultIndex, aTheme, aTimePeriod: Integer): Single;
 var
-  ParamIndex, ResultIndex: Integer;
+  ParamIndex: Integer = -1;
 begin
-  if aTheme <= 0 then
-    Result := MISSING
+  // Theme results reside in the MSX output file
+  Result := MISSING;
+  if MsxFileOpened
+  and (aTheme >= FirstLinkQualTheme)
+  and (aTheme < FirstLinkQualTheme + QualThemeCount) then
+  begin
+    ParamIndex := LinkThemes[aTheme].SourceIndex;
+    Result := results.GetLinkMsxValue(ResultIndex, ParamIndex, aTimePeriod);
+    exit;
+  end;
 
-  else begin
-    // Theme is a design parameter (diameter, length, etc.)
-    if aTheme < FirstLinkResultTheme then
+  // Theme results reside in the secondary output file
+  if aTheme = ltLeakage then
+  begin
+    if OutFile2Opened then
     begin
-      ParamIndex := LinkThemes[aTheme].SourceIndex;
-      Result := Project.GetLinkParam(LinkIndex, ParamIndex);
-    end
-
-    // Theme is a simulation result but no results exist
-    else if not Project.HasResults then
-      Result := MISSING
-
-    else begin
-
-      // Get the index of the theme with respect to its
-      // position in the binary output file EPANET generates
-      ParamIndex := LinkThemes[aTheme].SourceIndex;
-      ResultIndex := Project.GetResultIndex(cLinks, LinkIndex);
-
-      if ResultIndex < 1 then
-        Result := MISSING
-      else begin
-
-        // Theme is a multi-species water quality variable
-        if MsxFileOpened and (aTheme >= FirstLinkQualTheme) then
-          Result := Results.GetLinkMsxValue(ResultIndex, ParamIndex, aTimePeriod)
-
-        // Theme is leakage rate which is saved to a separate auxilary
-        // output file
-        else if aTheme = ltLeakage then
-        begin
-          if DmndFileOpened then
-            Result := Results.GetLinkLeakageValue(ResultIndex, aTimePeriod)
-          else
-            Result := MISSING;
-        end
-
-        // Theme is one saved to EPANET's binary output file
-        else if OutFileOpened then
-        begin
-          // The single species water quality results are the 4th variable
-          // (index of 3) saved to the output file
-          if aTheme = FirstLinkQualTheme then ParamIndex := 3;
-          Result := Results.GetLinkValue(ResultIndex, ParamIndex, aTimePeriod);
-        end
-
-        else
-          Result := MISSING;
-      end;
+      Result := results.GetLinkLeakageValue(ResultIndex, aTimePeriod);
+      exit;
     end;
+  end;
+  if aTheme = ltEnergy then
+  begin
+    if OutFile2Opened then
+      Result := results.GetLinkEnergyValue(ResultIndex, aTimePeriod);
+      exit;
+    end;
+
+  // Theme results reside in the primary output file
+  if OutFileOpened then
+  begin
+    if aTheme = FirstLinkQualTheme then
+      ParamIndex := FirstLinkQualTheme - FirstLinkResultTheme - 1
+    else if aTheme = ltStatus then
+      ParamIndex := 4
+    else if aTheme = ltSetting then
+      ParamIndex := 5
+    else if aTheme < LinkThemeCount then
+      ParamIndex := LinkThemes[aTheme].SourceIndex;
+    if ParamIndex >= 0 then
+      Result := results.GetLinkValue(ResultIndex, ParamIndex, aTimePeriod);
   end;
 end;
 
-// Find flow direction (+1/-1) of a particular link
-function GetFlowDir(LinkIndex: Integer): Integer;
+function  GetLinkValue(LinkIndex, aTheme, aTimePeriod: Integer): Single;
 var
-  FlowIndex, ResultIndex: Integer;
+  ResultIndex: Integer;
+begin
+  Result := MISSING;
+  if aTheme <= 0 then exit;
+
+  // Theme is a design parameter (diameter, length, etc.)
+  if aTheme < FirstLinkResultTheme then
+  begin
+    Result := project.GetLinkParam(LinkIndex, LinkThemes[aTheme].SourceIndex);
+    exit;
+  end;
+
+  // Theme is a simulation result but no results exist
+  if not project.HasResults then exit;
+
+  // Find index of link in the output file
+  ResultIndex := project.GetResultIndex(ctLinks, LinkIndex);
+  if ResultIndex < 1 then exit;
+
+  // Lookup link result from the appropriate output file
+  Result := GetLinkResultFromFile(ResultIndex, aTheme, aTimePeriod);
+end;
+
+function GetFlowDir(LinkIndex: Integer): Integer;
+//
+// Find a link's flow direction (+1 or -1).
+//
+var
+  FlowIndex: Integer;
+  ResultIndex: Integer;
 begin
   Result := 1;
-  if Project.HasResults then
+  if project.HasResults then
   begin
     FlowIndex := LinkThemes[ltFlow].SourceIndex;
-    ResultIndex := Project.GetResultIndex(cLinks, LinkIndex);
-    if (ResultIndex >= 1) and
-       (Results.GetLinkValue(ResultIndex, FlowIndex, TimePeriod) < 0) then
-       Result := -1;
+    ResultIndex := project.GetResultIndex(ctLinks, LinkIndex);
+    if (ResultIndex >= 1)
+    and (results.GetLinkValue(ResultIndex, FlowIndex, TimePeriod) < 0) then
+      Result := -1;
   end;
 end;
 
-// Initialize the LayersTreeView used to display map legends in the main window.
-procedure InitThemes(ThemeViewer: TTreeView);
+procedure InitThemes;
+//
+// Initialize the main form's  MapViewerFrame.
+//
 var
-  TreeNode: TTreeNode;
-  I, J: Integer;
-  S: string;
+  I:        Integer;
+  J:        Integer;
+  S:        string;
+  DS:       Char;
 begin
-  // Initialize themes and time period
-  NodeTheme := 0;
-  LinkTheme := 0;
   QualThemeCount := 0;
   TimePeriod := 0;
-
-  // Set StateIndex of all nodes in the ThemeViewer TreeView to 1 (i.e., checked)
-  for I := 0 to ThemeViewer.Items.Count-1 do
-  begin
-    TreeNode := Themeviewer.Items[I];
-    if TreeNode.StateIndex = 0 then TreeNode.StateIndex := 1;
-  end;
-
-  // Hide the node & link themes tree nodes
-  TreeNode := Utils.FindTreeNode(ThemeViewer, 'Nodes').GetNext;
-  TreeNode.Visible := false;
-  TreeNode := Utils.FindTreeNode(ThemeViewer, 'Links').GetNext;
-  TreeNode.Visible := false;
-
-  // Hide the basemap tree node
-  TreeNode := Utils.FindTreeNode(ThemeViewer, 'Basemap');
-  TreeNode.Visible := false;
+  DS := DefaultFormatSettings.DecimalSeparator;
 
   // Load base node themes
   NodeThemeCount := ntPressure + 1;
@@ -379,8 +392,9 @@ begin
     for J := 1 to MAXLEVELS do
     begin
       S := NodeThemes[I].DefIntervals[J];
+      S := StringReplace(S, '.', DS, []);
       NodeIntervals[I].Labels[J] := S;
-      Utils.Str2Float(S, NodeIntervals[I].Values[J]);
+      utils.Str2Float(S, NodeIntervals[I].Values[J]);
     end;
   end;
 
@@ -397,17 +411,18 @@ begin
     for J := 1 to MAXLEVELS do
     begin
       S := LinkThemes[I].DefIntervals[J];
+      S := StringReplace(S, '.', DS, []);
       LinkIntervals[I].Labels[J] := S;
-      Utils.Str2Float(S, LinkIntervals[I].Values[J]);
+      utils.Str2Float(S, LinkIntervals[I].Values[J]);
     end;
   end;
+  InitColors;
 end;
 
 procedure InitColors;
 var
   I: Integer;
 begin
-  // Assign default colors to legend intervals
   for I := 0 to High(DefLegendColors) do
   begin
     NodeColors[I] := DefLegendColors[I];
@@ -417,15 +432,15 @@ end;
 
 procedure ResetThemes;
 var
-  I, J,
-  OldThemeCount,
-  OldQualThemeCount: Integer;
+  I, J:                   Integer;
+  OldThemeCount:          Integer;
+  OldQualThemeCount:      Integer;
   LastNonQualSourceIndex: Integer;
 begin
-  if Project.HasResults then
+  if project.HasResults then
   begin
     OldQualThemeCount := QualThemeCount;
-    QualThemeCount := Results.GetQualCount;
+    QualThemeCount := results.GetQualCount;
 
     OldThemeCount := NodeThemeCount;
     NodeThemeCount := ntPressure + QualThemeCount + 1;
@@ -434,6 +449,7 @@ begin
       SetLength(NodeThemes, NodeThemeCount);
       SetLength(NodeIntervals, NodeThemeCount);
     end;
+
     LastNonQualSourceIndex := NodeThemes[FirstNodeQualTheme-1].SourceIndex;
     for I := FirstNodeQualTheme to NodeThemeCount - 1 do
     begin
@@ -490,154 +506,101 @@ begin
     end;
   end;
 
-  MainForm.MainMenuFrame.ResetMapThemes;
+  MainForm.MapViewerFrame.ResetMapThemes;
   MainForm.MapFrame.RedrawMap;
 end;
 
-// Change a network map legend when a theme changes.
-procedure ChangeTheme(ThemeViewer: TTreeView; ThemeType: Integer; NewTheme: Integer);
+procedure ChangeTheme(ThemeType: Integer; NewTheme: Integer);
 var
-  TreeNode: TTreeNode;
-  CategoryName: string;
-  ThemeName: string;
-  ThemeUnits: string;
+  ThemeName:     string;
+  ThemeUnits:    string;
 begin
   // Select theme's parameters
-  if ThemeType = cNodes then
+  if ThemeType = ctNodes then
   begin
-    CategoryName := 'Nodes';
     ThemeName := NodeThemes[NewTheme].Name;
     NodeTheme := NewTheme;
   end
-  else if ThemeType = cLinks then
+  else if ThemeType = ctLinks then
   begin
-    CategoryName := 'Links';
     ThemeName := LinkThemes[NewTheme].Name;
     LinkTheme := NewTheme;
   end
   else
     exit;
 
-  // Find the LayersTreeView node that contains the theme's name
-  TreeNode := Utils.FindTreeNode(ThemeViewer, CategoryName);
-  if TreeNode <> nil then
-  begin
-    TreeNode := TreeNode.GetNext;
-
-    // Change the theme name
-    if TreeNode <> nil then
-    begin
-      ThemeUnits := GetThemeUnits(ThemeType, NewTheme);
-      if Length(ThemeUnits) > 0 then ThemeUnits := ' (' + ThemeUnits + ')';
-      TreeNode.Text := ThemeName + ThemeUnits;
-      TreeNode.Visible := (NewTheme > 0);
-    end;
-  end;
+  // Update theme's units label on the MapViewerFrame
+  ThemeUnits := GetThemeUnits(ThemeType, NewTheme);
+  if ThemeType = ctNodes then
+    MainForm.MapViewerFrame.NodeUnitsLabel.Caption := ThemeUnits
+  else if ThemeType = ctLinks then
+    MainForm.MapViewerFrame.LinkUnitsLabel.Caption := ThemeUnits;
 
   // Update the theme's legend
-  if NewTheme > 0 then UpdateLegend(TreeNode, ThemeType);
+  UpdateLegend(ThemeType, NewTheme, ThemeName, ThemeUnits);
+
 end;
 
-// Turn basemap layer on/off
-procedure SetBaseMapVisible(IsVisible: Boolean);
-var
-  TreeNode: TTreeNode;
+procedure UpdateLegend(ThemeType: Integer; ThemeIndex: Integer;
+  ThemeName: string; ThemeUnits: string);
 begin
-  TreeNode := Utils.FindTreeNode(MainForm.LegendTreeView, 'Basemap');
-  TreeNode.Visible := IsVisible;
-  if IsVisible then
-    TreeNode.StateIndex := 1
-  else
-    TreeNode.StateIndex := 0;
-end;
-
-// Update the display of a map theme's legend.
-procedure UpdateLegend(StartNode: TTreeNode; ThemeType: Integer);
-var
-  I: Integer;
-  TreeNode: TTreeNode;
-  S1, S2: string;
-  Intervals: TLegendIntervals;
-begin
-  if ThemeType = cNodes then
-    Intervals := NodeIntervals[NodeTheme]
-  else if ThemeType = cLinks then
-    Intervals := LinkIntervals[LinkTheme]
-  else
-    exit;
-  TreeNode := StartNode;
-  S1 := Intervals.Labels[1];
-  S2 := S1;
-  for I := 0 to MAXLEVELS do
+  if ThemeType = ctNodes then
   begin
-    TreeNode := TreeNode.GetNext;      // Next legend item
-    TreeNode.Visible := true;
-    if I = 0 then
-      TreeNode.Text := ' < ' + S2
-    else if I = MAXLEVELS then
-      TreeNode.Text := ' > ' + S1
-    else begin
-      S2 := Intervals.Labels[I+1];
-      if SameText(S1, S2) then
-      begin
-        TreeNode.Text := '';
-        TreeNode.Visible := false;
-      end
-      else
-        TreeNode.Text := ' ' + S1 + ' - ' + S2;
-      S1 := S2;
-    end;
-  end;
-end;
-
-procedure UpdateLegendMarkers(LegendType: Integer; Colors: array of TColor);
-
-// Change the colors of the bitmaps in the main form's LegendImageList
-// used to display a legend in the form's LayersTreeView.
-
-var
-  Marker: TBitmap;
-  R: TRect;
-  I: Integer;
-  Ioffset: Integer;  // Node or Link offset into the LegendImageList
-begin
-  Marker := TBitmap.Create;
-  try
-    Marker.PixelFormat := pf32bit;
-    MainForm.LegendImageList.GetBitmap(0, Marker);
-    Marker.Canvas.Brush.Style := bsSolid;
-    R := Rect(0, 0, Marker.Width, Marker.Height);
-    if LegendType = cNodes then
-      Ioffset := 2
-    else
-      Ioffset := 7;
-    for I := 0 to MAXLEVELS do
+    if ThemeIndex = 0 then
     begin
-      Marker.Canvas.Brush.Color := Colors[I];
-      Marker.Canvas.Rectangle(R);
-      MainForm.LegendImageList.Replace(I + Ioffset, Marker, nil);
+      MainForm.MapFrame.NodeLegend.Visible := false;
+      MainForm.MapViewerFrame.EnableLegend(ctNodes, false);
+    end
+    else
+    begin
+
+      MainForm.MapViewerFrame.EnableLegend(ctNodes, true);
+      MainForm.MapFrame.NodeLegend.DrawLegend(NodeColors,
+        NodeIntervals[ThemeIndex].Labels, ThemeName, ThemeUnits);
+      if MainForm.MapViewerFrame.NodeLegendBox.Checked then
+        MainForm.MapFrame.NodeLegend.Visible := true;
+
     end;
-  finally
-    Marker.Free;
   end;
+
+  if ThemeType = ctLinks then
+  begin
+    if ThemeIndex = 0 then
+    begin
+      MainForm.MapFrame.LinkLegend.Visible := false;
+      MainForm.MapViewerFrame.EnableLegend(ctLinks, false);
+    end
+    else
+    begin
+
+      MainForm.MapViewerFrame.EnableLegend(ctLinks, true);
+//      IsFramed := MainForm.MapFrame.LinkLegend.Framed;
+      MainForm.MapFrame.LinkLegend.DrawLegend(LinkColors,
+        LinkIntervals[ThemeIndex].Labels, ThemeName, ThemeUnits); //, IsFramed);
+      if MainForm.MapViewerFrame.LinkLegendBox.Checked then
+        MainForm.MapFrame.LinkLegend.Visible := true;
+
+    end;
+  end;
+
 end;
 
 function EditNodeLegend: Boolean;
-
-// Launch the LegendEditorForm to change the node legend.
-
+var
+  IsFramed: Boolean;
 begin
   Result := false;
+  IsFramed := MainForm.MapFrame.NodeLegend.Framed;
   with TLegendEditorForm.Create(MainForm) do
   try
-    LoadData(cNodes, NodeThemes[NodeTheme].Name, NodeColors,
-      NodeIntervals[NodeTheme]);
+    LoadData(ctNodes, NodeThemes[NodeTheme].Name, NodeColors,
+      NodeIntervals[NodeTheme], IsFramed);
     ShowModal;
     if ModalResult = mrOk then
     begin
-      UnloadData(NodeColors, NodeIntervals[NodeTheme]);
-      UpdateLegendMarkers(cNodes, NodeColors);
-      ChangeTheme(MainForm.LegendTreeView, cNodes, NodeTheme);
+      UnloadData(NodeColors, NodeIntervals[NodeTheme], IsFramed);
+      MainForm.MapFrame.NodeLegend.Framed := IsFramed;
+      ChangeTheme(ctNodes, NodeTheme);
       Result := true;
     end;
   finally
@@ -646,21 +609,21 @@ begin
 end;
 
 function EditLinkLegend: Boolean;
-
-// Launch the LegendEditorForm to change the link legend.
-
+var
+  IsFramed: Boolean;
 begin
   Result := false;
+  IsFramed := MainForm.MapFrame.LinkLegend.Framed;
   with TLegendEditorForm.Create(MainForm) do
   try
-    LoadData(cLinks, LinkThemes[LinkTheme].Name, LinkColors,
-      LinkIntervals[LinkTheme]);
+    LoadData(ctLinks, LinkThemes[LinkTheme].Name, LinkColors,
+      LinkIntervals[LinkTheme], IsFramed);
     ShowModal;
     if ModalResult = mrOk then
     begin
-      UnloadData(LinkColors, LinkIntervals[LinkTheme]);
-      UpdateLegendMarkers(cLinks, LinkColors);
-      ChangeTheme(MainForm.LegendTreeView, cLinks, LinkTheme);
+      UnloadData(LinkColors, LinkIntervals[LinkTheme], IsFramed);
+      MainForm.MapFrame.LinkLegend.Framed := IsFramed;
+      ChangeTheme(ctLinks, LinkTheme);
       Result := true;
     end;
   finally
@@ -669,13 +632,10 @@ begin
 end;
 
 procedure ChangeTimePeriod(NewTimePeriod: Integer);
-
-// Redraw the network map after a new time period is selected.
-
 begin
   TimePeriod := NewTimePeriod;
-  if (LinkTheme >= FirstLinkResultTheme) or
-     (NodeTheme >= FirstNodeResultTheme) then
+  if (LinkTheme >= FirstLinkResultTheme)
+  or (NodeTheme >= FirstNodeResultTheme) then
   begin
     if MainForm.QueryFrame.Visible then
       MainForm.QueryFrame.UpdateResults
@@ -685,21 +645,20 @@ begin
 end;
 
 function GetNodeColor(NodeIndex: Integer; var ColorIndex: Integer): TColor;
-
-// Find the legend color associated with a given node's current theme value.
-
 var
   Value: Single;
-  K: Integer;
+  K:     Integer;
 begin
   ColorIndex := 0;
   if MainForm.QueryFrame.Visible then
     Result := MainForm.QueryFrame.GetFilteredNodeColor(NodeIndex)
+  else if MainForm.GroupSelectorFrame.IsActive then
+    Result := MainForm.GroupSelectorFrame.GetSelectedNodeColor(NodeIndex)
   else if NodeTheme <= 0 then
     Result := clGray
   else
   begin
-    Value := GetCurrentThemeValue(cNodes, NodeIndex);
+    Value := GetCurrentThemeValue(ctNodes, NodeIndex);
     if Value = MISSING then
       Result := clGray
     else
@@ -719,21 +678,20 @@ begin
 end;
 
 function GetLinkColor(LinkIndex: Integer; var ColorIndex: Integer): TColor;
-
-// Find the legend color associated with a given link's current theme value.
-
 var
   Value: Single;
-  K: Integer;
+  K:     Integer;
 begin
   ColorIndex := 0;
   if MainForm.QueryFrame.Visible then
     Result := MainForm.QueryFrame.GetFilteredLinkColor(LinkIndex)
+  else if MainForm.GroupSelectorFrame.IsActive then
+    Result := MainForm.GroupSelectorFrame.GetSelectedLinkColor(LinkIndex)
   else if LinkTheme <= 0 then
     Result := clGray
   else
   begin
-    Value := GetCurrentThemeValue(cLinks, LinkIndex);
+    Value := GetCurrentThemeValue(ctLinks, LinkIndex);
     if Value = MISSING then
       Result := clGray
     else
@@ -755,35 +713,42 @@ end;
 
 function GetMinMaxValues(ObjType: Integer; var Vmin: Double;
   var Vmax: Double): Boolean;
-
+//
 // Find the range of values for an object's current theme.
-
+//
 var
-  I, N: Integer;
+  I: Integer;
+  N: Integer;
   V: Double;
 begin
   Vmax := -1.e50;
   Vmin := 1.e50;
   Result := false;
-  if not Project.HasResults then
+
+  if not project.HasResults then
   begin
-    if (ObjType = cNodes) and (NodeTheme >= FirstNodeResultTheme) then exit;
-    if (ObjType = cLinks) and (LinkTheme >= FirstLinkResultTheme) then exit;
+    if (ObjType = ctNodes)
+    and (NodeTheme >= FirstNodeResultTheme) then
+      exit;
+    if (ObjType = ctLinks)
+    and (LinkTheme >= FirstLinkResultTheme) then
+      exit;
   end;
-  N := Project.GetItemCount(ObjType);
+
+  N := project.GetItemCount(ObjType);
   if N = 0 then exit;
   for I := 1 to N do
   begin
     V := GetCurrentThemeValue(ObjType, I);
     if V <> MISSING then
     begin
-      if (ObjType = cNodes) then
+      if (ObjType = ctNodes) then
       begin
-        if GetNodeType(I) in [nReservoir, nTank] then continue;
+        if GetNodeType(I) in [ntReservoir, ntTank] then continue;
         if NodeTheme in [ntBaseDemand, ntDemand] then V := Abs(V);
         if NodeTheme = ntPressure then V := Max(V, 0.01);
       end;
-      if (ObjType = cLinks) then
+      if (ObjType = ctLinks) then
       begin
         if LinkTheme in [ltFlow, ltVelocity, ltHeadloss] then V := Abs(V);
       end;
@@ -798,15 +763,15 @@ end;
 procedure SetInitialThemeIntervals(ThemeType: Integer;
   var Intervals: TLegendIntervals);
 var
-  I: Integer;
-  Vmin: Double = 0;
-  Vmax: Double = 0;
+  I:         Integer;
+  Vmin:      Double = 0;
+  Vmax:      Double = 0;
   Vinterval: Double;
 begin
   if GetMinMaxValues(ThemeType, Vmin, Vmax) then
   begin
     Vinterval := (Vmax - Vmin) / (MAXLEVELS + 1);
-    Utils.AutoScale(Vmin, Vmax, Vinterval);
+    utils.AutoScale(Vmin, Vmax, Vinterval);
     for I := 1 to MAXLEVELS do
     begin
       Intervals.Values[I] := Single(Vmin + I * Vinterval);
@@ -819,68 +784,89 @@ procedure SetInitialTheme(ThemeType: Integer; aTheme: Integer);
 var
   Intervals: TLegendIntervals;
 begin
-  if ThemeType = cNodes then
+  if ThemeType = ctNodes then
   begin
     NodeTheme := aTheme;
     Intervals := NodeIntervals[NodeTheme]
   end
-  else if ThemeType = cLinks then
+  else if ThemeType = ctLinks then
   begin
     LinkTheme := aTheme;
     Intervals := LinkIntervals[LinkTheme]
   end
-  else exit;
+  else
+    exit;
   SetInitialThemeIntervals(ThemeType, Intervals);
-  if ThemeType = cNodes then
+  if ThemeType = ctNodes then
     NodeIntervals[aTheme] := Intervals;
-  if ThemeType = cLinks then
+  if ThemeType = ctLinks then
     LinkIntervals[aTheme] := Intervals;
-  ChangeTheme(MainForm.LegendTreeView, ThemeType, aTheme);
+  ChangeTheme(ThemeType, aTheme);
 end;
 
-function  GetThemeUnits(ThemeType: Integer; aTheme: Integer): String;
+function  GetThemeUnits(ThemeType: Integer; aTheme: Integer): string;
 begin
   Result := '';
-  if ThemeType = cNodes then case aTheme of
+  if ThemeType = ctNodes then case aTheme of
     ntElevation,
     ntHead:
-      if Project.GetUnitsSystem = usUS then Result := 'ft'
-      else Result := 'm';
+      if project.GetUnitsSystem = usUS then
+        Result := rsFoot
+      else
+        Result := rsMeters;
     ntBaseDemand,
     ntDemand:
-      Result := Project.FlowUnitsStr[Project.FlowUnits];
+      Result := project.FlowUnitsStr[project.FlowUnits];
     ntDmndDfct:
-      Result := '%';
+      Result := rsPcntSymbol;
     ntEmittance, ntLeakage:
-      Result := Project.FlowUnitsStr[Project.FlowUnits];
+      Result := project.FlowUnitsStr[project.FlowUnits];
     ntPressure:
-      if Project.GetUnitsSystem = usUS then Result := 'psi'
-      else Result := 'm';
-    else Result := results.GetQualUnits(aTheme - ntPressure - 1);
+      Result := project.PressureUnitsStr[project.PressureUnits];
+    else
+      Result := results.GetQualUnits(aTheme - ntPressure - 1);
   end
 
-  else if ThemeType = cLinks then case aTheme of
+  else if ThemeType = ctLinks then case aTheme of
     ltDiameter:
-      if Project.GetUnitsSystem = usUS then Result := 'in'
-      else Result := 'mm';
+      if project.GetUnitsSystem = usUS then
+        Result := rsInch
+      else
+        Result := rsMillimeter;
     ltLength:
-      if Project.GetUnitsSystem = usUS then Result := 'ft'
-      else Result := 'm';
+      if project.GetUnitsSystem = usUS then
+        Result := rsFoot
+      else
+        Result := rsMeters;
     ltRoughness:
       Result := '';
     ltFlow:
-      Result := Project.FlowUnitsStr[Project.FlowUnits];
+      Result := project.FlowUnitsStr[project.FlowUnits];
     ltVelocity:
-      if Project.GetUnitsSystem = usUS then Result := 'ft/s'
-      else Result := 'm/s';
+      if project.GetUnitsSystem = usUS then
+        Result := rsFeetPerSec
+      else
+        Result := rsMetersPerSec;
     ltHeadloss:
-      if Project.GetUnitsSystem = usUS then Result := 'ft/Kft'
-      else Result := 'm/km';
+      if project.GetUnitsSystem = usUS then
+        Result := rsFtPerKiloFt
+      else
+        Result := rsMetersPerKm;
     ltLeakage:
-      Result := Project.FlowUnitsStr[Project.FlowUnits];
+      Result := project.FlowUnitsStr[project.FlowUnits];
+    ltStatus,
+    ltSetting:
+      Result := '';
     else
       Result := results.GetQualUnits(aTheme - FirstLinkQualTheme);
   end;
+end;
+
+function GetStatusStr(Status: Integer): String;
+begin
+  if Status in [0..2] then Result := 'Closed'
+  else if Status = 4 then Result := 'Active'
+  else Result := 'Open';
 end;
 
 end.

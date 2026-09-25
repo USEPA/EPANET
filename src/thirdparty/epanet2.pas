@@ -3,7 +3,7 @@ unit epanet2;
 { Declarations of imported procedures from the EPANET PROGRAMMERs TOOLKIT }
 { (EPANET2.DLL) }
 
-{Last updated on 06/06/2024}
+{Last updated on 04/23/2025}
 
 interface
 
@@ -79,6 +79,7 @@ const
  EN_LEAK_AREA      = 26;
  EN_LEAK_EXPAN     = 27;
  EN_LINK_LEAKAGE   = 28;
+ EN_VALVE_TYPE     = 29;
  
  EN_DURATION     = 0;  { Time parameters }
  EN_HYDSTEP      = 1;
@@ -173,6 +174,8 @@ const
  EN_PSI        = 0;   { Pressure units types }
  EN_KPA        = 1;
  EN_METERS     = 2;
+ EN_BAR        = 3;
+ EN_FEET       = 4;
 
  EN_DDA        = 0;   { Demand model types }
  EN_PDA        = 1;  
@@ -428,7 +431,7 @@ const
  function  ENgetpatternvalue(Index: Integer; Period: Integer; var Value: Single): Integer; cdecl; external EpanetLib;
  function  ENsetpatternvalue(Index: Integer; Period: Integer; Value: Single): Integer; cdecl; external EpanetLib;
  function  ENgetaveragepatternvalue(Index: Integer; var Value: Single): Integer; cdecl; external EpanetLib;
- function  ENsetpattern(Index: Integer; var F: Single; N: Integer): Integer; cdecl; external EpanetLib;
+ function  ENsetpattern(Index: Integer; var F: array of Single; N: Integer): Integer; cdecl; external EpanetLib;
            
 {Curve Functions}
  function  ENaddcurve(ID: PAnsiChar): Integer; cdecl; external EpanetLib;
@@ -475,7 +478,7 @@ const
           var Status: Integer; var Setting: Single): Integer; cdecl; external EpanetLib;
  function ENsetelseaction(RuleIndex: Integer; ActionIndex: Integer; LinkIndex: Integer;
           Status: Integer; Setting: Single): Integer; cdecl; external EpanetLib;
- function  ENgetruleenabled(Index: Integer; var enabled: Integer): Integer; cdecl; external EpanetLib;
+ function  ENgetruleenabled(Index: Integer; var out_enabled: Integer): Integer; cdecl; external EpanetLib;
  function  ENsetruleenabled(Index: Integer; enabled: Integer): Integer; cdecl; external EpanetLib;
 
 implementation

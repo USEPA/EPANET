@@ -8,11 +8,11 @@ object SummaryForm: TSummaryForm
   ClientHeight = 400
   ClientWidth = 348
   KeyPreview = True
-  OnKeyDown = FormKeyDown
-  OnShow = FormShow
   ParentFont = True
   Position = poMainFormCenter
-  LCLVersion = '3.2.0.0'
+  LCLVersion = '4.4.0.0'
+  OnKeyDown = FormKeyDown
+  OnShow = FormShow
   object TreeView1: TTreeView
     Left = 16
     Height = 368

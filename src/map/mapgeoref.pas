@@ -1,23 +1,21 @@
 {====================================================================
- Project:      EPANET Graphical User Interface
- Version:      2.3
+ Project:      EPANET-UI
+ Version:      1.0.3
  Module:       mapgeoref
  Description:  a frame used to georeference a basemap image
- Authors:      see AUTHORS
- Copyright:    see AUTHORS
  License:      see LICENSE
- Last Updated: 02/16/2025
+ Last Updated: 06/19/2026
 =====================================================================}
 {
   The mapgeoref frame contains a TNotebook with 5 pages that are
   accessed in wizard-type fashion:
-  Page1 - selects whether to use control points or a world file
-          for georeferencing
+  Page1 - selects whether to use distance or scale factor for
+          georeferencing
   Page2 - selects two control points on the basemap and the
           distance between them
   Page3 - provides the world coordinates of a third control point
-  Page4 - displays the contents of an opened world file
-  Page5 - displays the world coordinates for the georeferenced basemap
+  Page4 - selects a scale factor and lower left coordinates
+  Page5 - displays the bounding coordinates of the georeferenced basemap
 }
 
 unit mapgeoref;
@@ -35,58 +33,76 @@ type
   { TGeoRefFrame }
 
   TGeoRefFrame = class(TFrame)
-    BotPanel: TPanel;
-    BackBtn: TButton;
-    Label1: TLabel;
-    Label2: TLabel;
-    UnitsCB: TComboBox;
-    CtrlPt2RB: TRadioButton;
-    CtrlPt3RB: TRadioButton;
-    XunitsLabel: TLabel;
-    NextBtn: TButton;
-    CtrlPt1RB: TRadioButton;
-    RP2Label: TLabel;
-    WorldFileBtn: TButton;
-    CloseBtn: TSpeedButton;
-    LowLeftYEdit: TFloatSpinEditEx;
-    Label16: TLabel;
-    Label17: TLabel;
-    Label3: TLabel;
-    MethodRG: TRadioGroup;
-    Page5: TPage;
-    RP3Label: TLabel;
-    WorldFileGrid: TStringGrid;
-    UnitsRG: TRadioGroup;
-    RP1Label: TLabel;
-    Notebook1: TNotebook;
-    Page1: TPage;
-    Page2: TPage;
-    Page3: TPage;
-    Page4: TPage;
-    MidPanel: TPanel;
-    TopPanel: TPanel;
-    ExtentsGrid: TStringGrid;
-    LowLeftXEdit: TFloatSpinEditEx;
-    DistanceEdit: TFloatSpinEditEx;
-    YunitsLabel: TLabel;
+    Label1:         TLabel;
+    Label2:         TLabel;
+    Label3:         TLabel;
+    Label4:         TLabel;
+    Label5:         TLabel;
+    Label6:         TLabel;
+    Label7:         TLabel;
+    Label8:         TLabel;
+    Label9:         TLabel;
+    PointLabel1:    TLabel;
+    PointLabel2:    TLabel;
+    PointLabel3:    TLabel;
+    XunitsLabel:    TLabel;
+    YunitsLabel:    TLabel;
+    Notebook1:      TNotebook;
+    Page1:          TPage;
+    Page2:          TPage;
+    Page3:          TPage;
+    Page4:          TPage;
+    Page5:          TPage;
+    TopPanel:       TPanel;
+    MidPanel:       TPanel;
+    BotPanel:       TPanel;
+    HelpBtn:        TButton;
+    BackBtn:        TButton;
+    NextBtn:        TButton;
+    WorldFileBtn:   TButton;
+    CloseBtn:       TSpeedButton;
+    WorldPerPixelEdit: TFloatSpinEditEx;
+    LowerLeftEditX: TFloatSpinEditEx;
+    LowerLeftEditY: TFloatSpinEditEx;
+    UnitsCB:        TComboBox;
+    UnitsRG:        TRadioGroup;
+    MethodRG:       TRadioGroup;
+    CtrlPtRB1:      TRadioButton;
+    CtrlPtRB2:      TRadioButton;
+    CtrlPtRB3:      TRadioButton;
+    CtrlPtRB4:      TRadioButton;
+    XanchorEdit:    TFloatSpinEditEx;
+    YanchorEdit:    TFloatSpinEditEx;
+    DistanceEdit:   TFloatSpinEditEx;
+    BasemapGrid:    TStringGrid;
+
     procedure BackBtnClick(Sender: TObject);
     procedure CloseBtnClick(Sender: TObject);
+    procedure CtrlPtRB1Click(Sender: TObject);
+    procedure CtrlPtRB4Click(Sender: TObject);
+    procedure HelpBtnClick(Sender: TObject);
     procedure NextBtnClick(Sender: TObject);
     procedure WorldFileBtnClick(Sender: TObject);
+
   private
     GeoRefMethod: Integer;
-    MapUnits: String;
-    Lowerleft: mapcoords.TDoublePoint;
-    UpperRight: mapcoords.TDoublePoint;
-    CtrlPt: array[1..3] of mapcoords.TDoublePoint;
+    MapUnits:     string;
+    CtrlPt:       array[1..3] of mapcoords.TDoublePoint;
+    AnchorPt:     mapcoords.TDoublePoint;
+    Distance:     Double;
+    ScaleInfo1:   mapcoords.TScalingInfo;
+    ScaleInfo2:   mapcoords.TScalingInfo;
+
+    procedure GetGeoRefMethod;
     procedure SetToolbarButtons;
     procedure LoadWorldFile;
-    procedure FindExtentFromControlPoints;
-    procedure FillExtentsGrid;
-    procedure SetBasemapExtent;
+    function  ReadWorldFile(Filename: string): Boolean;
     function  AcceptDistancePoints: Boolean;
-    function  AcceptReferencePoint: Boolean;
-    function  ReadWorldFile(Filename: String): Boolean;
+    function  AcceptScalingFactor: Boolean;
+    function  GetWorldPerPixel: Double;
+    procedure FindNewScaling;
+    procedure FindNewExtent;
+    procedure TransformCoordinates;
 
   public
     procedure Show;
@@ -99,149 +115,185 @@ implementation
 {$R *.lfm}
 
 uses
-  main, project, config, utils;
+  main, project, config, utils, resourcestrings;
 
 const
-  gmControlPts = 0;
-  gmWorldFile = 1;
+  gmDistance = 0;
+  gmScaling = 1;
 
-  WorldFileFields: array[0..3] of String =
-    ('World X / Pixel', 'World Y / Pixel', 'Top Left X', 'Top Left Y');
-
-  ExtentsFields: array[0..3] of String =
-    ('Lower Left X', 'Lower Left Y', 'Upper Right X', 'Upper Right Y');
+  ExtentsFields: array[0..3] of string =
+    (rsLowLeftX, rsLowLeftY, rsUpRightX, rsUpRightY);
 
 { TGeoRefFrame }
 
 procedure TGeoRefFrame.Show;
-
+//
 //  Initialize the frame's contents when made visible by user
 //  selecting the Georeference item on the main form's Basemap menu
-
+//
 var
   I: Integer;
+  DS: Char;
 begin
+  // Set decimal separator for TFloatSpinEditEx controls
+  DS := DefaultFormatSettings.DecimalSeparator;
+  XanchorEdit.DecimalSeparator := DS;
+  YanchorEdit.DecimalSeparator := DS;
+  DistanceEdit.DecimalSeparator := DS;
+
+  // Set frame colors
+  Color := config.CreamTheme;
+  config.SetHeaderColor(TopPanel);
+
   // Initialize georeferencing method and distance units
-  TopPanel.Color := config.ThemeColor;
   Notebook1.PageIndex := 0;
   MethodRG.ItemIndex := 0;
   with UnitsRG do
   begin
-    ItemIndex := project.MapUnits;
+    I := project.MapUnits;
+    if I < Items.Count then ItemIndex := I else ItemIndex := 0;
     MapUnits := Items[ItemIndex];
     XunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
     YunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
   end;
-  GeoRefMethod := gmControlPts;
+  GeoRefMethod := gmDistance;
 
-  // Populate the labels used to display world file information
-  // and the extents of the basemap
+  // Populate the labels of the basemap extents grid
   for I := 0 to 3 do
   begin
-    WorldFileGrid.Cells[0,I] := WorldFileFields[I];
-    WorldFileGrid.Cells[1,I] := '';
-    ExtentsGrid.Cells[0,I] := ExtentsFields[I];
-    ExtentsGrid.Cells[1,I] := '';
+    BasemapGrid.Cells[0,I] := ExtentsFields[I];
+    BasemapGrid.Cells[1,I] := '';
   end;
 
   // Initialize the captions and edit controls used for
-  // georeferencing with control points
-  RP1Label.Caption := '';
-  RP2Label.Caption := '';
-  RP3Label.Caption := '';
-  LowLeftXEdit.Value := 0;
-  LowLeftYEdit.Value := 0;
+  // georeferencing with distance
+  XanchorEdit.Value := 0;
+  YanchorEdit.Value := 0;
   DistanceEdit.Value := 0;
-  CtrlPt1RB.Checked := False;
-  CtrlPt2RB.Checked := False;
-  CtrlPt3RB.Checked := False;
+  for I := 1 to 3 do
+  begin
+    with FindComponent('CtrlPtRB' + IntToStr(I)) as TRadioButton do
+    begin
+      Checked := false;
+      Caption := rsLocatePoint  + ' ' + IntToStr(I);
+    end;
+    CtrlPtRB4.Checked := false;
+    with FindComponent('PointLabel' + IntToStr(I)) as TLabel do
+      Caption := '';
+  end;
 
-  // Initialize the wizard's navigation buttons
+  // Initialize the frame's navigation buttons
+  Visible := true;
   SetToolbarButtons;
-  Visible := True;
 end;
 
 procedure TGeoRefFrame.Hide;
-
+//
 //  Hide the frame when the user clicks the close button in its top panel
-
+//
 var
   I: Integer;
 begin
+
+  // Hide the control point icons on the network map
   with MainForm.MapFrame do
-    for I := Low(CtrlPoint) to High(CtrlPoint) do CtrlPoint[I].Visible := False;
-  Visible := False;
+    for I := Low(CtrlPoint) to High(CtrlPoint) do
+      CtrlPoint[I].Visible := false;
+
+  // Make the frame invisible and redraw the network map
+  Visible := false;
   MainForm.MapFrame.RedrawMap;
 end;
 
 procedure TGeoRefFrame.NextBtnClick(Sender: TObject);
+begin
+  // Process choices made on current notebook page before moving to next page
+  case Notebook1.PageIndex of
+
+    0: // Page1 - set georeferencing method & units
+      GetGeoRefMethod;
+
+    1: // Page2 - set distance control points
+      if AcceptDistancePoints then Notebook1.PageIndex := 2;
+
+    2: // Page3 - set reference control point
+      if Length(PointLabel3.Caption) = 0 then
+        utils.MsgDlg(rsInvalidData, rsNoThirdPt, mtError, [mbOK])
+      else
+      begin
+        AnchorPt.X := XanchorEdit.Value;
+        AnchorPt.Y := YanchorEdit.Value;
+        FindNewExtent;
+        Notebook1.PageIndex := 4;
+      end;
+
+    3: // Page4 - process scaling factor & lower left coords.
+      if AcceptScalingFactor then
+      begin
+        FindNewExtent;
+        Notebook1.PageIndex := 4;
+      end;
+
+    4: // Transform coords. of network objects
+      TransformCoordinates;
+  end;
+  SetToolbarButtons;
+end;
+
+procedure TGeoRefFrame.GetGeoRefMethod;
 var
   I: Integer;
 begin
-  case Notebook1.PageIndex of
-  0: // Page1 - select method & units
-    begin
-      if (GeoRefMethod = gmControlPts) and (MethodRG.ItemIndex = gmWorldFile) then
-      begin
-        with MainForm.MapFrame do
-          for I := Low(CtrlPoint) to High(CtrlPoint) do
-            CtrlPoint[I].Visible := False;
-        MainForm.MapFrame.RedrawMap;
-      end;
-      GeoRefMethod := MethodRG.ItemIndex;
-      with UnitsRG do
-      begin
-        MapUnits := Items[ItemIndex];
-        XunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
-        YunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
-      end;
-      if GeoRefMethod = gmControlPts then
-        Notebook1.PageIndex := 1
-      else
-        Notebook1.PageIndex := 3;
-    end;
-
-  1:  // Page2 - select distance control points
-    if AcceptDistancePoints then Notebook1.PageIndex := 2;
-
-  2:  // Page3 - select reference control point
-    begin
-      if AcceptReferencePoint then
-      begin
-        FindExtentFromControlPoints;
-        Notebook1.PageIndex := 4;
-      end;
-    end;
-
-  3:  // Page4 - display world file extents
-    Notebook1.PageIndex := 4;
-
-  4: // Page5 - accept georeferenced extents
-    SetBasemapExtent;
-
+  // Remove control point icons from network map if scaling georef method used
+  if (GeoRefMethod = gmDistance)
+  and (MethodRG.ItemIndex = gmScaling) then
+  begin
+    with MainForm.MapFrame do
+      for I := Low(CtrlPoint) to High(CtrlPoint) do
+        CtrlPoint[I].Visible := false;
+    MainForm.MapFrame.RedrawMap;
   end;
-  SetToolbarButtons;
+
+  // Save selected georef method and map distance units
+  GeoRefMethod := MethodRG.ItemIndex;
+  with UnitsRG do
+  begin
+    MapUnits := Items[ItemIndex];
+    XunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
+    YunitsLabel.Caption := project.MapUnitsStr[ItemIndex];
+  end;
+
+  // Switch to next notebook page depending on method selected
+  if GeoRefMethod = gmDistance then
+    Notebook1.PageIndex := 1
+  else
+    Notebook1.PageIndex := 3;
 end;
 
 procedure TGeoRefFrame.BackBtnClick(Sender: TObject);
 begin
   case Notebook1.PageIndex of
-  1:
-    Notebook1.PageIndex := 0;
-  2:
-    Notebook1.PageIndex := 1;
-  3:
-    Notebook1.PageIndex := 0;
-  4:
-    begin
-      if GeoRefMethod = gmControlPts then Notebook1.PageIndex := 2
-      else Notebook1.PageIndex := 3;
-    end;
+    1:
+      Notebook1.PageIndex := 0;
+    2:
+      Notebook1.PageIndex := 1;
+    3:
+      Notebook1.PageIndex := 0;
+    4:
+      begin
+        if GeoRefMethod = gmDistance then
+          Notebook1.PageIndex := 2
+        else
+          Notebook1.PageIndex := 3;
+      end;
   end;
   SetToolbarButtons;
 end;
 
 procedure TGeoRefFrame.WorldFileBtnClick(Sender: TObject);
+//
+// Use a World file to determine basemap scaling and origin.
+//
 begin
   LoadWorldFile;
 end;
@@ -251,65 +303,154 @@ begin
   Hide;
 end;
 
-procedure TGeoRefFrame.SetToolbarButtons;
+procedure TGeoRefFrame.CtrlPtRB1Click(Sender: TObject);
+//
+// Shared by CtrlPtRB1, CtrlPtRB2, and CtrlPtRB3 where their
+// Tag value determines which radio button was clicked.
+//
+var
+  I: Integer = 0;
 begin
-  NextBtn.Caption := 'Next';
-  BackBtn.Enabled := True;
-  case Notebook1.PageIndex of
-  0:
-    BackBtn.Enabled := False;
-  4:
-    NextBtn.Caption := 'Accept';
+  with Sender as TRadioButton do I := Tag;
+  with FindComponent('CtrlPtRB' + IntToStr(I)) as TRadioButton do
+  begin
+    if Checked then
+    begin
+      Caption := rsClickPoint + ' ' + IntToStr(I);
+      case I of
+      1: CtrlPtRB2.Caption := rsLocatePoint + ' 2';
+      2: CtrlPtRB1.Caption := rsLocatePoint + ' 1';
+      3: CtrlPtRB4.Checked := false;
+      end;
+      MainForm.MapFrame.CtrlPoint[I].Visible := false;
+      MainForm.MapFrame.RedrawMap;
+    end;
   end;
 end;
 
-function TGeoRefFrame.AcceptDistancePoints: Boolean;
+procedure TGeoRefFrame.CtrlPtRB4Click(Sender: TObject);
+//
+// User selects to place 3rd control point at lower left of basemap image.
+//
+var
+  W: TDoublePoint;
 begin
-  Result := False;
-  if DistanceEdit.Value <= 0 then
-    utils.MsgDlg('Distance must be > 0.', mtError, [mbOK])
-  else if (RP1Label.Caption = '') or (RP2Label.Caption = '') then
-    utils.MsgDlg('Two control points must be selected.', mtError, [mbOK])
-  else if RP1Label.Caption = RP2Label.Caption then
-    utils.MsgDlg('Both control points cannot be the same.', mtError, [mbOK])
-  else
-    Result := True;
+  // Uncheck the radio button used to select Control Point 3 from the map
+  CtrlPtRb3.Checked := false;
+  CtrlPtRb3.Caption := rsLocatePoint + ' 3';
+
+  // Locate Control Point 3's icon at lower left corner of basemap
+  with MainForm.MapFrame do
+  begin
+    CtrlPoint[3].Visible := true;
+    CtrlPoint[3].Position := MainForm.MapFrame.Map.Basemap.LowerLeft;
+    RedrawMap;
+  end;
+
+  // Assign the basemap's lower left location to Control Point 3
+  W := MainForm.MapFrame.Map.Basemap.LowerLeft;
+  PointLabel3.Caption := Format('%.6f, %.6f', [W.X, W.Y]);
+  CtrlPt[3] := W;
+  XanchorEdit.SetFocus;
 end;
 
-function TGeoRefFrame.AcceptReferencePoint: Boolean;
+procedure TGeoRefFrame.SetToolbarButtons;
 begin
-  Result := False;
-  if (RP3Label.Caption = '') then
-    utils.MsgDlg('No 3rd control point was selected.', mtError, [mbOK])
+  NextBtn.Caption := rsNext;
+  BackBtn.Enabled := true;
+  case Notebook1.PageIndex of
+    0:
+      begin
+        BackBtn.Enabled := false;
+        MethodRG.SetFocus;
+      end;
+    1:
+      CtrlPtRb1.SetFocus;
+    2:
+      CtrlPtRb3.SetFocus;
+    3:
+      WorldFileBtn.SetFocus;
+    4:
+      NextBtn.Caption := rsAccept;
+    end;
+end;
+
+function TGeoRefFrame.AcceptDistancePoints: Boolean;
+//
+//  Check that control points and distance between them are valid.
+//
+var
+  Msg: string = '';
+begin
+  Result := false;
+  if (Length(PointLabel1.Caption) = 0)
+  or (Length(PointLabel2.Caption) = 0) then
+    Msg := rsTwoPtsNeeded
+  else if SameText(PointLabel1.Caption, PointLabel2.Caption) then
+    Msg := rsSamePts
+  else if DistanceEdit.Value <= 0 then
+    Msg := rsBadDistance;
+  if Length(Msg) > 0 then
+    utils.MsgDlg(rsInvalidData, Msg, mtError, [mbOK])
   else
-    Result := True;
+  begin
+    Distance := DistanceEdit.Value;
+    Result := true;
+  end;
+end;
+
+function TGeoRefFrame.AcceptScalingFactor: Boolean;
+//
+// Convert user's scaling factor input to an equivalent distance input.
+//
+begin
+  Result := false;
+  if WorldPerPixelEdit.Value <= 0 then
+    utils.MsgDlg(rsInvalidData, rsWorldPerPixel, mtError, [mbOK])
+  else
+  begin
+    CtrlPt[1] := MainForm.MapFrame.Map.Basemap.LowerLeft;
+    CtrlPt[2].X := MainForm.MapFrame.Map.Basemap.UpperRight.X;
+    CtrlPt[2].Y := MainForm.MapFrame.Map.Basemap.LowerLeft.Y;
+    CtrlPt[3] := CtrlPt[1];
+    AnchorPt.X := LowerLeftEditX.Value;
+    AnchorPt.Y := LowerLeftEditY.Value;
+    Distance := WorldPerPixelEdit.Value * Abs((CtrlPt[2].X - CtrlPt[1].X));
+    Result := true;
+  end;
 end;
 
 procedure TGeoRefFrame.LoadWorldFile;
+//
+// Obtain the name of a World file to read scaling info from.
+//
 begin
   begin
     with MainForm.OpenDialog1 do
     begin
       FileName := '*.wld';
-      Filter :=
-        'World File|*.wld|JPG World File|*.jgw|PNG World File|*.pgw|All Files|*.*';
+      Filter := rsWorldFile;
       if Execute then
       begin
         if not ReadWorldFile(Filename) then
-          Utils.MsgDlg('Could not read World file.', mtError, [mbOk], MainForm);
+          Utils.MsgDlg(rsFileError, rsNoWorldFile, mtError, [mbOk], MainForm);
       end;
     end;
   end;
 end;
 
-function TGeoRefFrame.ReadWorldFile(Filename: String): Boolean;
+function TGeoRefFrame.ReadWorldFile(Filename: string): Boolean;
+//
+// Read the contents of a World file into the input fields on
+// Page4 of Notebook1.
+//
 var
   Lines: TStringList;
-  I, K: Integer;
+  I: Integer;
+  K: Integer;
   X: array[0..5] of Double;
-  BasemapSize: TSize;
 begin
-  Result := False;
+  Result := false;
   Lines := TStringList.Create;
   try
     Lines.LoadFromFile(Filename);
@@ -320,20 +461,11 @@ begin
         if Utils.Str2Float(Lines[I], X[I]) then Inc(K);
       if K = 6 then
       begin
-        BasemapSize := MainForm.MapFrame.GetBasemapSize;
-        LowerLeft.X := X[4];
-        LowerLeft.Y := X[5] + X[3] * BasemapSize.Height;
-        UpperRight.X := X[4] + X[0] * BasemapSize.Width;
-        UpperRight.Y := X[5];
-        with WorldFileGrid do
-        begin
-          Cells[1,0] := Lines[0];
-          Cells[1,1] := Lines[3];
-          Cells[1,2] := Lines[4];
-          Cells[1,3] := Lines[5];
-        end;
-        FillExtentsGrid;
-        Result := True;
+        WorldPerPixelEdit.Value := X[0];
+        LowerLeftEditX.Value := X[4];
+        LowerLeftEditY.Value := X[5] -
+          (X[0] * MainForm.MapFrame.Map.Basemap.Picture.Height);
+        Result := true;
       end;
     end;
   finally
@@ -342,149 +474,169 @@ begin
 end;
 
 function TGeoRefFrame.GetCtrlPointIndex(W: TDoublePoint): Integer;
-
-//  Display the coordinates (W) of a control point selected by the user.
-
+//
+//  This function saves the coordinates W of a control point selected on
+//  he network map. It is called by the MapFrame's MapBoxClick procedure
+//  when the user clicks on the control point location. The return value
+//  is used by the MapFrame to determine which control point icon to display.
+//
 var
-  S: String;
+  S: string;
 begin
   Result := 0;
   S := Format('%.6f, %.6f', [W.X, W.Y]);
+
+  // Control Point 3 was located
   if Notebook1.PageIndex = 2 then
   begin
-    if CtrlPt3RB.Checked then
+    if CtrlPtRB3.Checked then
     begin
-      RP3Label.Caption := S;
+      PointLabel3.Caption := S;
       CtrlPt[3] := W;
-      CtrlPt3RB.Checked := False;
+      CtrlPtRB3.Checked := false;
+      CtrlptRB3.Caption := rsLocatePoint  + ' 3';
+      XanchorEdit.SetFocus;
       Result := 3;
     end;
   end
-  else if CtrlPt1RB.Checked then
+
+  // Control Point 1 was located
+  else if CtrlPtRB1.Checked then
   begin
-    RP1Label.Caption := S;
+    PointLabel1.Caption := S;
     CtrlPt[1] := W;
-    CtrlPt1RB.Checked := False;
+    CtrlPtRB1.Checked := false;
+    CtrlptRB1.Caption := rsLocatePoint  + ' 1';
+    CtrlPtRB2.SetFocus;
     Result := 1;
   end
-  else if CtrlPt2RB.Checked then
+
+  // Control Point 2 was located
+  else if CtrlPtRB2.Checked then
   begin
-    RP2Label.Caption := S;
+    PointLabel2.Caption := S;
     CtrlPt[2] := W;
-    CtrlPt2RB.Checked := False;
+    CtrlPtRB2.Checked := false;
+    CtrlptRB2.Caption := rsLocatePoint  + ' 2';
+    DistanceEdit.SetFocus;
     Result := 2;
   end;
 end;
 
-procedure TGeoRefFrame.FindExtentFromControlPoints;
+procedure TGeoRefFrame.FindNewExtent;
+//
+//  Use new map scaling to find the new coordinates of the basemap's extent.
+//
 var
-  I: Integer;
-  SW, NE, DP, SWoffset: TDoublePoint;
-  Wwidth, Wheight, WPP: Double;
-  Psize: TSize;
-  P: array[1..3] of TDoublePoint;
-
-begin
-  // Get current basemap extent (SW, NW) in world coordinates and
-  // basemap image width and height (Psize) in pixels
-  with MainForm.MapFrame do
-  begin
-    SW := Map.Basemap.LowerLeft;
-    NE := Map.Basemap.UpperRight;
-    Psize := GetBasemapSize;
-  end;
-  Wwidth := NE.X - SW.X;
-  Wheight := NE.Y - SW.Y;
-
-  // Find pixel position of each control point within the basemap image
-  for I := 1 to 3 do
-  begin
-    P[I].X := (CtrlPt[I].X - SW.X) / Wwidth * Psize.Width;
-    P[I].Y := (CtrlPt[I].Y - SW.Y) / Wheight * Psize.Height;
-  end;
-
-  // Use distance between control points 1 and 2 to find world per pixel value (WPP)
-  DP.X := P[1].X - P[2].X;
-  DP.Y := P[1].Y - P[2].Y;
-  WPP := Sqrt(DP.X*DP.X + DP.Y*DP.Y);
-  WPP := DistanceEdit.Value / WPP;
-
-  // Use control point 3 to find lower left of new extent
-  LowerLeft.X := LowLeftXEdit.Value;  // - (P[3].X * WPP);
-  LowerLeft.Y := LowLeftYEdit.Value;  // - (P[3].Y * WPP);
-  UpperRight.X := LowerLeft.X + (WPP * Psize.Width);
-  UpperRight.Y := LowerLeft.Y + (WPP * Psize.Height);
-
-  // Display extent in the ExtentsGrid
-  FillExtentsGrid;
-end;
-
-procedure TGeoRefFrame.FillExtentsGrid;
-begin
-  with ExtentsGrid do
-  begin
-    Cells[1,0] := Format('%.6f',[LowerLeft.X]);
-    Cells[1,1] := Format('%.6f',[LowerLeft.Y]);
-    Cells[1,2] := Format('%.6f',[UpperRight.X]);
-    Cells[1,3] := Format('%.6f',[UpperRight.Y]);
-  end;
-end;
-
-procedure TGeoRefFrame.SetBasemapExtent;
-
-//  Change the dimensions of the network map to encompass the basemap.
-
-var
+  OldExtent: TDoubleRect;
   NewExtent: TDoubleRect;
-  BasemapSize: TSize;
-  MapRect: TRect;
-  BasemapWidth, BasemapHeight, Delta, WPP: Double;
 begin
-  // Width & height of map window and basemap in pixels
-  MapRect := MainForm.MapFrame.GetMapRect;
-  BaseMapSize := MainForm.MapFrame.GetBasemapSize;
+  // Determine new scaling
+  FindNewScaling;
 
-  // Width & height of basemap in world units
-  BasemapWidth := UpperRight.X - LowerLeft.X;
-  BasemapHeight := UpperRight.Y - LowerLeft.Y;
-  if (BasemapWidth = 0) or (BasemapHeight = 0) then
+  // Get current basemap extent
+  OldExtent.LowerLeft := MainForm.MapFrame.Map.Basemap.LowerLeft;
+  OldExtent.UpperRight := MainForm.MapFrame.Map.Basemap.UpperRight;
+  NewExtent := OldExtent;
+
+  // Use new scaling to convert OldExtent to NewExtent
+  mapcoords.DoExtentTransform(ScaleInfo1, ScaleInfo2, OldExtent, NewExtent);
+
+  // Display extent in Notebook1's Page5
+  with BasemapGrid do
   begin
-    Utils.MsgDlg('Basemap extents are invalid.', mtError, [mbOk], MainForm);
-    exit;
+    Cells[1,0] := Format('%.4f', [NewExtent.LowerLeft.X]);
+    Cells[1,1] := Format('%.4f', [NewExtent.LowerLeft.Y]);
+    Cells[1,2] := Format('%.4f', [NewExtent.UpperRight.X]);
+    Cells[1,3] := Format('%.4f', [NewExtent.UpperRight.Y]);
   end;
+end;
 
-  // Basemap extents in world units
-  NewExtent.LowerLeft := LowerLeft;
-  NewExtent.UpperRight := UpperRight;
+function TGeoRefFrame.GetWorldPerPixel: Double;
+//
+// Compute world distance per pixel from control points 1 and 2.
+//
+var
+  S: TScalingInfo;
+  P1: TPoint;
+  P2: TPoint;
+  DP: TDoublePoint;
+  D: Double;
+begin
+  // Current full scale info:
+  // S.CW = world coords. of map window center,
+  // S.CP = pixel coords. of map window center
+  // S.WP = world per pixel distance
+  S := MainForm.MapFrame.Map.GetScalingInfo;
 
-  // Map window is wider than basemap
-  if MapRect.Width > BasemapSize.Width then
-  begin
-    // World per pixel of basemap
-    WPP := BasemapWidth / BasemapSize.Width;
+  // Find pixel coords. of control points at full scale
+  P1.X := S.CP.X + Round((CtrlPt[1].X - S.CW.X) / S.WP);
+  P2.X := S.CP.X + Round((CtrlPt[2].X - S.CW.X) / S.WP);
+  P1.Y := S.CP.Y - Round((CtrlPt[1].Y - S.CW.Y) / S.WP);
+  P2.Y := S.CP.Y - Round((CtrlPt[2].Y - S.CW.Y) / S.WP);
 
-    // Extend extents width to fill map window
-    Delta := WPP * (MapRect.Width - BasemapSize.Width) / 2;
-    NewExtent.LowerLeft.X := LowerLeft.X - Delta;
-    NewExtent.UpperRight.X := UpperRight.X + Delta;
-  end;
+  // Find pixel distance between control points
+  DP.X := P2.X - P1.X;
+  DP.Y := P2.Y - P1.Y;
+  D := Sqrt((DP.X * DP.X) + (DP.Y * DP.Y));
 
-  // Map window is taller than basemap
-  if MapRect.Height > BasemapSize.Height then
-  begin
-    // World per pixel of basemap
-    WPP := BasemapHeight / BasemapSize.Height;
+  // Return world distance per pixel
+  Result := Distance / D;
+end;
 
-    // Extend extents height to fill map window
-    Delta := WPP * (MapRect.Height - BasemapSize.Height) / 2;
-    NewExtent.LowerLeft.Y := LowerLeft.Y - Delta;
-    NewExtent.UpperRight.Y := UpperRight.Y + Delta;
-  end;
+procedure TGeoRefFrame.FindNewScaling;
+//
+// Find scaling information for the georeferenced basemap:
+//
+// This information contains:
+// CP = pixel coordinates of map center point
+// CW = world coordinates of map center point
+// WP = world distance per pixel
+//
+var
+  P3: TPoint;        // pixel coords. of anchor point
+begin
+  // Current scaling info
+  ScaleInfo1 := MainForm.MapFrame.Map.GetScalingInfo;
 
-  // Replace full map extents with the georeferenced one
-  MainForm.MapFrame.ChangeExtent(NewExtent);
+  // New scaling has same center pixel
+  ScaleInfo2.CP := ScaleInfo1.CP;
+
+  // New world per pixel scaling
+  ScaleInfo2.WP := GetWorldPerPixel;
+
+  // Pixel coords of anchor point (CtrlPt[3]) under current scaling
+  P3.X := ScaleInfo1.CP.X + Round((CtrlPt[3].X - ScaleInfo1.CW.X) / ScaleInfo1.WP);
+  P3.Y := ScaleInfo1.CP.Y - Round((CtrlPt[3].Y - ScaleInfo1.CW.Y) / ScaleInfo1.WP);
+
+  // World coords. of center pixel under new scaling
+  ScaleInfo2.CW.X := AnchorPt.X + (ScaleInfo2.CP.X - P3.X) * ScaleInfo2.WP;
+  ScaleInfo2.CW.Y := AnchorPt.Y - (ScaleInfo2.CP.Y - P3.Y) * ScaleInfo2.WP;
+end;
+
+procedure TGeoRefFrame.TransformCoordinates;
+//
+//  Transform coordinates of network objects to reflect those of
+//  the georeferenced basemap.
+//
+begin
+  // Set map units
   project.MapUnits := UnitsRG.ItemIndex;
+
+  // Transform all coordinates and redraw the map at full extent
+  mapcoords.DoScalingTransform(ScaleInfo1, ScaleInfo2);
+  MainForm.MapFrame.DrawFullExtent;
+  MainForm.OverviewMapFrame.Redraw;
+
+  // Update project's HasChanged status
+  if (not project.HasChanged) and (not project.IsEmpty) then
+    project.HasChanged := true;
   Hide;
+end;
+
+procedure TGeoRefFrame.HelpBtnClick(Sender: TObject);
+begin
+  MainForm.ViewHelp('#georeferencing_a_basemap');
 end;
 
 end.
